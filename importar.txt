@@ -1,0 +1,31 @@
+Como importar 
+
+    Prepare o Excel de Produtos:
+
+        Abra o Excel.
+
+        Na primeira linha (cabeçalho) escreva exatamente: Nome, Estoque, Custo, Venda.
+
+        Preencha:
+
+            Fanta Laranja, 50, 3.50, 6.00
+
+            Pepsi 2L, 20, 6.00, 10.00
+
+        Salve como produtos.xlsx.
+
+    Prepare o Excel de Clientes:
+
+        Cabeçalho: Nome, Telefone, Whatsapp, Endereco.
+
+        Preencha os dados.
+
+        Salve como clientes.xlsx.
+
+    No Sistema:
+
+        Vá em Importação.
+
+        Carregue o arquivo no respectivo card e clique em Enviar.
+
+        O sistema vai processar e dar uma mensagem verde de sucesso!

@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    :root { --cor-tema: #15A0A5; --cor-fundo-card: #1e1e1e; }
+    .card-custom {
+        background-color: var(--cor-fundo-card);
+        border: 1px solid #333;
+        border-left: 5px solid var(--cor-tema);
+        border-radius: 8px;
+    }
+    .btn-tema { background-color: var(--cor-tema); color: white; border: none; font-weight: bold; }
+    .btn-tema:hover { background-color: #118185; color: white; }
+    .table-dark-custom th { color: var(--cor-tema); border-bottom: 2px solid #444; }
+    .table-dark-custom td { border-bottom: 1px solid #333; color: #ddd; vertical-align: middle; }
+</style>
+
+<div class="container mt-4">
+    <h3 class="text-white fw-bold mb-4">
+        <i class="fas fa-motorcycle me-2" style="color: var(--cor-tema);"></i>
+        Gestão de Entregas
+    </h3>
+
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card card-custom h-100">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center pt-4 px-4">
+                    <h5 class="text-white fw-bold m-0">Entregadores</h5>
+                    <a href="{% url 'cadastrar_motoboy' %}" class="btn btn-sm btn-tema">
+                        <i class="fas fa-plus"></i> Novo
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-dark-custom mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">Nome</th>
+                                    <th>Contato</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for m in motoboys %}
+                                <tr>
+                                    <td class="ps-4 fw-bold">{{ m.nome }}</td>
+                                    <td><small>{{ m.telefone }}</small></td>
+                                    <td class="text-center">
+                                        {% if m.ativo %}
+                                            <span class="badge bg-success">Ativo</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Inativo</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="3" class="text-center text-muted py-3">Nenhum entregador.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card card-custom h-100">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center pt-4 px-4">
+                    <h5 class="text-white fw-bold m-0">Frota (Motos)</h5>
+                    <a href="{% url 'cadastrar_moto' %}" class="btn btn-sm btn-tema">
+                        <i class="fas fa-plus"></i> Nova
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-dark-custom mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">Modelo</th>
+                                    <th>Placa</th>
+                                    <th>Cor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for moto in motos %}
+                                <tr>
+                                    <td class="ps-4 fw-bold">{{ moto.modelo }}</td>
+                                    <td><span class="badge bg-dark border border-secondary">{{ moto.placa }}</span></td>
+                                    <td><small>{{ moto.cor }}</small></td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="3" class="text-center text-muted py-3">Nenhuma moto cadastrada.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

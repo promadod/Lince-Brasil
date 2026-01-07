@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}Lojas{% endblock %}
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <h2>Lojas</h2>
+    <a href="{% url 'nova_loja' %}" class="btn">Nova +</a>
+</div>
+<div class="card">
+    <table style="width:100%; color: #fff;">
+        <thead><tr style="text-align:left; border-bottom:1px solid #444;"><th>Nome</th><th>Gerente</th><th>Ações</th></tr></thead>
+        <tbody>
+            {% for l in lojas %}
+            <tr style="border-bottom:1px solid #333;">
+                <td style="padding:10px;">{{ l.nome }}</td>
+                <td>{{ l.gerente.username|default:"-" }}</td>
+                <td><a href="{% url 'editar_loja' l.id %}" style="color: #03dac6;">Editar</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

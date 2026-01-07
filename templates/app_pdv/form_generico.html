@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom:20px;">{{ titulo }}</h2>
+
+<div class="card" style="max-width: 600px;">
+    <form method="post">
+        {% csrf_token %}
+        
+        {% for field in form %}
+        <div style="margin-bottom: 15px;">
+            <label style="display:block; margin-bottom:5px;">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+                <small style="color: #ff5555;">{{ field.errors }}</small>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <div style="margin-top: 20px;">
+            <button type="submit">Salvar</button>
+            <a href="javascript:history.back()" class="btn" style="background-color: #333; color:#fff; margin-left:10px;">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

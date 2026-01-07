@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Itens do Estoque{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <h2>Itens Cadastrados (Definições)</h2>
+    <a href="{% url 'novo_item' %}" class="btn">Novo Item +</a>
+</div>
+
+<div class="card">
+    <table style="width:100%; color: #fff;">
+        <thead>
+            <tr style="text-align:left; border-bottom: 1px solid #444;">
+                <th style="padding:10px;">Nome do Item</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in itens %}
+            <tr style="border-bottom: 1px solid #333;">
+                <td style="padding:10px;">{{ item.nome }}</td>
+                <td>
+                    <a href="{% url 'editar_item' item.id %}" style="color: #03dac6; margin-right:10px;">Editar</a>
+                    <a href="{% url 'deletar_item' item.id %}" style="color: #cf6679;" onclick="return confirm('Excluir este item?')">Excluir</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="2" style="text-align:center; padding: 20px;">Nenhum item cadastrado.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

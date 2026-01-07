@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Fechamento de Caixa{% endblock %}
+
+{% block content %}
+<style>
+    /* Força cor preta em TUDO dentro do recibo, ignorando o tema escuro */
+    .recibo-container, 
+    .recibo-container h3, 
+    .recibo-container p, 
+    .recibo-container span, 
+    .recibo-container td, 
+    .recibo-container li,
+    .recibo-container strong {
+        color: #000000 !important; /* Preto absoluto */
+    }
+
+    /* Estilos para Impressão */
+    @media print {
+        .sidebar, .btn-imprimir, .btn-voltar { display: none !important; }
+        .content { margin: 0; padding: 0; width: 100%; background-color: #fff; }
+        body { background-color: #fff; }
+        .recibo-container { border: none !important; box-shadow: none !important; margin: 0; }
+    }
+</style>
+
+<div style="max-width: 400px; margin: 0 auto;">
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;" class="no-print">
+        <a href="{% url 'fluxo_caixa' %}" class="btn btn-voltar" style="background-color: #333;">Voltar</a>
+        <button onclick="window.print()" class="btn btn-imprimir" style="background-color: #03dac6; color: #000;">Imprimir</button>
+    </div>
+
+    <div class="card recibo-container" style="background: #ffffff !important; font-family: 'Courier New', monospace; padding: 20px;">
+        
+        <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px;">
+            <h3 style="margin: 0; text-transform: uppercase; font-weight: bold; font-size: 1.2em;">{{ caixa.loja.nome }}</h3>
+            <p style="margin: 5px 0; font-weight: bold;">COMPROVANTE DE FECHAMENTO</p>
+            <p style="font-size: 0.8em;">{{ data_fechamento|date:"d/m/Y H:i:s" }}</p>
+        </div>
+
+        <p><strong>Operador:</strong> {{ operador.username }}</p>
+        <p><strong>Caixa ID:</strong> #{{ caixa.id }}</p>
+
+        <div style="border-bottom: 1px dashed #000; margin: 10px 0;"></div>
+
+        <table style="width: 100%; font-size: 0.9em;">
+            <tr>
+                <td>(+) Saldo Inicial:</td>
+                <td style="text-align: right;">R$ {{ caixa.saldo_inicial }}</td>
+            </tr>
+            <tr>
+                <td>(+) Vendas Totais:</td>
+                <td style="text-align: right;">R$ {{ total_vendas|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td>(+) Receitas Extras:</td>
+                <td style="text-align: right;">R$ {{ entradas|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td>(-) Despesas/Sangrias:</td>
+                <td style="text-align: right;">R$ {{ saidas|floatformat:2 }}</td>
+            </tr>
+        </table>
+
+        <div style="border-bottom: 1px dashed #000; margin: 10px 0;"></div>
+
+        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2em; margin: 10px 0;">
+            <span>SALDO FINAL:</span>
+            <span>R$ {{ caixa.saldo_final|floatformat:2 }}</span>
+        </div>
+
+        <div style="border-bottom: 1px dashed #000; margin: 10px 0;"></div>
+
+        <p style="margin-bottom: 5px; font-weight: bold;">Detalhamento Vendas:</p>
+        <ul style="list-style: none; padding: 0; font-size: 0.9em;">
+            {% for p in resumo_pgto %}
+            <li style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                <span>{{ p.forma_pagamento }}:</span>
+                <span>R$ {{ p.total|floatformat:2 }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+
+        <div style="margin-top: 40px; text-align: center;">
+            <div style="border-top: 1px solid #000; width: 80%; margin: 0 auto 5px auto;"></div>
+            <small>Assinatura do Responsável</small>
+        </div>
+    </div>
+</div>
+{% endblock %}

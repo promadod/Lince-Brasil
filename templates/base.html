@@ -1,0 +1,47 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDV Bebidas - {% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+    {% if user.is_authenticated %}
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h2></h2>
+            
+        </div>
+        
+        <div class="sidebar-menu">
+            <a href="{% url 'dashboard' %}"><i class="fas fa-home"></i> Dashboard</a>
+            <a href="{% url 'app_vendas' %}" style="color: #00ffaa; font-weight: bold; border-left: 3px solid #00ffaa; padding-left: 17px;"><i class="fas fa-satellite-dish"></i> Torre de Controle</a>
+            <a href="{% url 'lista_vendedores' %}"><i class="fas fa-users-cog"></i> Usuários</a>
+            <a href="{% url 'nova_venda' %}"><i class="fas fa-shopping-cart"></i> Vender</a>
+            <a href="{% url 'lista_vendas' %}"><i class="fas fa-history"></i> Histórico de Vendas</a>
+            <a href="{% url 'lista_estoque' %}"><i class="fas fa-boxes"></i> Estoque</a>
+            <a href="{% url 'lista_itens' %}"><i class="fas fa-tags"></i> Cadastrar Itens</a>
+            <a href="{% url 'lista_produtos' %}"><i class="fas fa-box"></i> Produtos</a>
+            <a href="{% url 'lista_clientes' %}"><i class="fas fa-users"></i> Clientes</a>
+            <a href="{% url 'lista_fornecedores' %}"><i class="fas fa-truck"></i> Fornecedores</a>
+            <a href="{% url 'lista_lojas' %}"><i class="fas fa-store"></i> Lojas</a>
+            <a href="{% url 'lista_entregas' %}" class="nav-link"><i class="fas fa-motorcycle"></i> Entregas</a>
+            <a href="{% url 'fluxo_caixa' %}"><i class="fas fa-cash-register"></i> Caixa</a>
+            <a href="{% url 'relatorios' %}"><i class="fas fa-chart-line"></i> Relatórios</a>
+            <a href="{% url 'menu_importacao' %}"><i class="fas fa-file-excel"></i> Importação</a>
+            <a href="{% url 'logout' %}" style="color: #15a0a5ff;"><i class="fas fa-sign-out-alt"></i> Sair</a>
+        </div>
+    </nav>
+    {% endif %}
+
+    <div class="content">
+        {% block content %}
+        {% endblock %}
+    </div>
+
+</body>
+</html>

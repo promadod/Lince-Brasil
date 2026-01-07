@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Importação de Dados{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom: 20px;">Importação de Dados (Excel)</h2>
+
+{% if messages %}
+    {% for message in messages %}
+    <div style="padding: 15px; margin-bottom: 20px; border-radius: 5px; 
+        {% if message.tags == 'success' %}background-color: #03dac6; color: #000;
+        {% else %}background-color: #cf6679; color: #fff;{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+{% endif %}
+
+<div style="display: flex; gap: 20px; flex-wrap: wrap;">
+
+    <div class="card" style="flex: 1; min-width: 300px;">
+        <h3 style="color: #15A0A5;"><i class="fas fa-users"></i> Importar Clientes</h3>
+        <p style="font-size: 0.9em; color: #aaa;">
+            O arquivo Excel deve ter as colunas:<br>
+            <strong>Nome</strong> (Obrigatório), <strong>Telefone</strong>, <strong>Whatsapp</strong>, <strong>Endereco</strong>.
+        </p>
+        <div style="background: #333; padding: 10px; border-radius: 4px; font-size: 0.8em; margin-bottom: 10px;">
+            <i class="fas fa-info-circle"></i> O sistema criará automaticamente o Cliente no menu clientes.
+        </div>
+        
+        <form action="{% url 'importar_clientes' %}" method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ form.arquivo_excel }}
+            <button type="submit" class="btn" style="margin-top: 10px; width: 100%;">
+                <i class="fas fa-upload"></i> Carregar Clientes
+            </button>
+        </form>
+    </div>
+
+    <div class="card" style="flex: 1; min-width: 300px;">
+        <h3 style="color: #15A0A5;"><i class="fas fa-box"></i> Importar Produtos</h3>
+        <p style="font-size: 0.9em; color: #aaa;">
+            O arquivo Excel deve ter as colunas:<br>
+            <strong>Nome</strong> (Obrigatório), <strong>Estoque</strong>, <strong>Custo</strong>, <strong>Venda</strong>.
+        </p>
+        <div style="background: #333; padding: 10px; border-radius: 4px; font-size: 0.8em; margin-bottom: 10px;">
+            <i class="fas fa-info-circle"></i> O sistema criará automaticamente o Item no Estoque e um Produto "Unidade".
+        </div>
+
+        <form action="{% url 'importar_produtos' %}" method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ form.arquivo_excel }}
+            <button type="submit" class="btn" style="margin-top: 10px; width: 100%;">
+                <i class="fas fa-upload"></i> Carregar Produtos
+            </button>
+        </form>
+    </div>
+
+</div>
+{% endblock %}

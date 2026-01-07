@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Fornecedores{% endblock %}
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <h2>Fornecedores</h2>
+    <a href="{% url 'novo_fornecedor' %}" class="btn">Novo +</a>
+</div>
+<div class="card">
+    <table style="width:100%; color: #fff;">
+        <thead><tr style="text-align:left; border-bottom:1px solid #444;"><th>Nome</th><th>Contato</th><th>Ações</th></tr></thead>
+        <tbody>
+            {% for f in fornecedores %}
+            <tr style="border-bottom:1px solid #333;">
+                <td style="padding:10px;">{{ f.nome }}</td>
+                <td>{{ f.contato }}</td>
+                <td>
+                    <a href="{% url 'editar_fornecedor' f.id %}" style="color: #03dac6; margin-right:10px;">Editar</a>
+                    <a href="{% url 'deletar_fornecedor' f.id %}" style="color: #ff5555;" onclick="return confirm('Apagar?')">Excluir</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

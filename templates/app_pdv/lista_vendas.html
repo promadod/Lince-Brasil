@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+{% block title %}Histórico de Vendas{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom: 20px;">Histórico de Vendas</h2>
+
+<div class="card">
+    <table style="width:100%; color: #fff;">
+        <thead>
+            <tr style="text-align:left; border-bottom: 1px solid #444;">
+                <th style="padding:10px;">ID</th>
+                <th style="text-align: center;">Origem</th> <th>Data</th>
+                <th>Cliente</th>
+                <th>Status</th>
+                <th>Total</th>
+                <th style="text-align: center;">Conferência</th>
+                <th class="text-end">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for venda in vendas %}
+            <tr style="border-bottom: 1px solid #333; {% if venda.status == 'CANCELADO' %}opacity: 0.7;{% endif %}">
+                <td style="padding:10px;">#{{ venda.id }}</td>
+                
+                <td style="text-align: center;">
+                    {% if venda.origem == 'APP' %}
+                        <span class="badge" style="background-color: #673ab7; color: white;" title="Venda pelo App">
+                            <i class="fas fa-mobile-alt"></i> APP
+                        </span>
+                    {% else %}
+                        <span class="badge" style="background-color: #cc8111ff; border: 1px solid #555; color: #ddd;" title="Venda no Balcão">
+                            <i class="fas fa-store"></i> PDV
+                        </span>
+                    {% endif %}
+                </td>
+                <td>{{ venda.data_venda|date:"d/m/Y H:i" }}</td>
+                <td>{{ venda.cliente.nome|default:"Venda na loja" }}</td>
+                
+                <td>
+                    {% if venda.status == 'CANCELADO' %}
+                        <span style="background-color: #e53935; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">
+                            <i class="fas fa-ban"></i> VENDA CANCELADA
+                        </span>
+
+                    {% elif venda.eh_entrega %}
+                        {% if venda.status_entrega == 'PENDENTE' %}
+                            <span style="background-color: #ff9800; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">
+                                <i class="fas fa-clock"></i> AGUARDANDO MOTOBOY
+                            </span>
+                        {% elif venda.status_entrega == 'EM_ROTA' %}
+                            <span style="background-color: #29b6f6; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">
+                                <i class="fas fa-motorcycle"></i> EM ROTA ({{ venda.entregador.first_name|default:"Motoboy" }})
+                            </span>
+                        {% elif venda.status_entrega == 'ENTREGUE' %}
+                            <span style="background-color: #66bb6a; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">
+                                <i class="fas fa-check-circle"></i> ENTREGA FINALIZADA
+                            </span>
+                        {% endif %}
+
+                    {% else %}
+                        {% if venda.status == 'FINALIZADO' %}
+                            <span style="background-color: #03dac6; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">VENDA NA LOJA</span>
+                        {% elif venda.status == 'ABERTO' %}
+                            <span style="background-color: #eee021ff; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">EM ABERTO</span>
+                        {% elif venda.status == 'ORCAMENTO' %}
+                            <span style="background-color: #bb86fc; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">ORÇAMENTO</span>
+                        {% else %}
+                            <span style="background-color: #aaa; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 0.8em;">{{ venda.status }}</span>
+                        {% endif %}
+                        
+                    {% endif %}
+                </td>
+
+                <td style="font-weight: bold;">R$ {{ venda.total }}</td>
+
+                <td style="text-align: center;">
+                    {% if venda.status != 'CANCELADO' %}
+                        {% if venda.eh_entrega and venda.forma_pagamento == 'DINHEIRO' %}
+                            {% if venda.conferencia_ok %}
+                                <span style="color: #66bb6a; font-weight: bold; font-size: 0.9em;">
+                                    <i class="fas fa-check-circle"></i> OK
+                                </span>
+                            {% elif venda.status_entrega == 'ENTREGUE' %}
+                                <button onclick="confirmarDinheiro({{ venda.id }})" 
+                                        style="border: none; background-color: #ff9800; color: #000; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 0.9em; cursor: pointer;"
+                                        title="Confirmar Recebimento">
+                                    <i class="fas fa-hand-holding-usd"></i> Receber
+                                </button>
+                            {% else %}
+                                <span style="color: #777; font-size: 0.8em;">-</span>
+                            {% endif %}
+                        {% else %}
+                            <span style="color: #555;">-</span>
+                        {% endif %}
+                    {% else %}
+                        <span style="color: #e53935; font-size: 0.8em;">X</span>
+                    {% endif %}
+                </td>
+
+                <td class="text-end">
+                    <a href="{% url 'detalhes_venda' venda.id %}" 
+                       style="display: inline-block; background-color: #03dac6; color: #000; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9em; margin-right: 5px;" 
+                       title="Ver Detalhes">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    
+                    {% if venda.status == 'ABERTO' %}
+                        <a href="{% url 'retomar_venda' venda.id %}" 
+                           style="display: inline-block; background-color: #ff9800; color: #000; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9em; margin-right: 5px;" 
+                           title="Continuar Venda">
+                            <i class="fas fa-play"></i>
+                        </a>
+
+                        <a href="{% url 'excluir_venda' venda.id %}" 
+                           style="display: inline-block; background-color: #cf6679; color: #fff; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9em;" 
+                           title="Cancelar/Excluir Venda"
+                           onclick="return confirm('Tem certeza que deseja CANCELAR e EXCLUIR esta venda em aberto?');">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" style="text-align:center; padding: 20px;">Nenhuma venda registrada.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    function confirmarDinheiro(vendaId) {
+        if(!confirm("Confirmar que o dinheiro desta venda foi recebido e conferido?")) return;
+        fetch(`/api/venda/conferir/${vendaId}/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json'}
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.sucesso) location.reload();
+            else alert("Erro ao confirmar: " + (data.erro || "Erro desconhecido"));
+        })
+        .catch(error => { console.error('Erro:', error); alert("Erro de conexão."); });
+    }
+</script>
+{% endblock %}

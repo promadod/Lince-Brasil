@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Torre de Controle | Magno Delivery</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    
+    <style>
+        body {
+            background-color: #121212; /* Fundo Preto Profundo */
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .navbar { 
+            background-color: #1f1f1f; 
+            border-bottom: 2px solid #28a745; /* Linha verde Magno */
+        }
+        .coluna-kanban {
+            background-color: #1e1e1e;
+            border-radius: 10px;
+            padding: 15px;
+            min-height: 80vh;
+            border: 1px solid #333;
+        }
+        .titulo-coluna {
+            text-align: center;
+            font-weight: bold;
+            text-transform: uppercase;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #444;
+            margin-bottom: 15px;
+        }
+        
+        /* CARD DO PEDIDO */
+        .card-pedido {
+            background-color: #2c2c2c;
+            border: none;
+            border-left: 5px solid #555; /* Cor padrão da borda */
+            margin-bottom: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+        .card-pedido:hover { transform: translateY(-2px); }
+        
+        /* CORES ESPECÍFICAS DE STATUS */
+        .status-PENDENTE { border-left-color: #ffc107; } /* Amarelo */
+        .status-EM_PREPARACAO { border-left-color: #2196f3; } /* Azul */
+        .status-SAIU_ENTREGA { border-left-color: #9c27b0; } /* Roxo */
+        
+        /* TEXTOS DENTRO DO CARD */
+        .card-header-pedido {
+            display: flex; 
+            justify-content: space-between; 
+            font-weight: bold; 
+            font-size: 1.1em;
+            color: #ffffff; /* Nome do cliente bem branco */
+        }
+        .text-valor { 
+            color: #28a745; /* Verde Dinheiro */
+            font-weight: bold; 
+            font-size: 1.2em; 
+        }
+        .info-clara {
+            color: #d1d1d1 !important; /* Cinza bem claro para endereço */
+            font-size: 0.95em;
+            margin-top: 4px;
+        }
+        .lista-itens { 
+            font-size: 0.9em; 
+            color: #ffffff; /* Itens em branco */
+            margin: 10px 0; 
+            border-top: 1px solid #444; 
+            padding-top: 5px; 
+        }
+
+        .btn-acao { width: 100%; margin-top: 5px; font-weight: bold; }
+        
+        /* Animação para chamar atenção no pedido novo */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+        }
+        .novo-pedido-alerta { animation: pulse 2s infinite; }
+    </style>
+</head>
+<body>
+
+    <audio id="som-alerta" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
+
+    <nav class="navbar navbar-dark mb-4 px-4">
+        <span class="navbar-brand mb-0 h1"><i class="bi bi-broadcast"></i> TORRE DE CONTROLE</span>
+        
+        <div class="text-end">
+            <button id="btnLoja" onclick="toggleLoja()" class="btn btn-sm btn-outline-light me-3">
+                <i class="bi bi-shop"></i> Verificando...
+            </button>
+            <button onclick="alterarTaxaEntrega()" class="btn btn-sm btn-outline-light me-3">
+                <i class="bi bi-gear-fill"></i> Config. Taxa App
+            </button>
+            
+            <span class="badge bg-secondary" id="status-conexao">Conectando...</span>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4">
+        <div class="row g-4">
+            
+            <div class="col-md-4">
+                <div class="coluna-kanban">
+                    <h5 class="titulo-coluna text-warning"><i class="bi bi-bell-fill"></i> Aguardando Aprovação</h5>
+                    <div id="coluna-pendente"></div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="coluna-kanban">
+                    <h5 class="titulo-coluna text-info"><i class="bi bi-box-seam-fill"></i> Em Separação</h5>
+                    <div id="coluna-preparacao"></div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="coluna-kanban">
+                    <h5 class="titulo-coluna" style="color: #d05ce3;"><i class="bi bi-bicycle"></i> Em Rota</h5>
+                    <div id="coluna-rota"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "/api/torre/dados/";
+        const API_STATUS = "/api/pedido/status/";
+        let idsConhecidos = new Set(); 
+
+        // ------------------ NOVO SCRIPT DO BOTÃO DA LOJA ------------------
+        // Ao carregar a página, verifica se a loja está aberta
+        document.addEventListener("DOMContentLoaded", function() {
+            fetch('/api/loja/toggle/')
+            .then(response => response.json())
+            .then(data => {
+                atualizarBotaoVisual(data.loja_aberta);
+            })
+            .catch(err => console.error("Erro ao verificar loja:", err));
+        });
+
+        // Função para atualizar a cor e texto do botão visualmente
+        function atualizarBotaoVisual(estaAberta) {
+            const btn = document.getElementById('btnLoja');
+            if (estaAberta) {
+                btn.className = "btn btn-sm btn-success me-3"; // Fica Verde
+                btn.innerHTML = '<i class="bi bi-shop"></i> LOJA ABERTA (ON)';
+            } else {
+                btn.className = "btn btn-sm btn-danger me-3"; // Fica Vermelho
+                btn.innerHTML = '<i class="bi bi-slash-circle"></i> LOJA FECHADA (OFF)';
+            }
+        }
+
+        // Função que roda ao clicar no botão
+        function toggleLoja() {
+            if(!confirm("Tem certeza que deseja mudar o status de funcionamento da loja?")) return;
+
+            fetch('/api/loja/toggle/', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.sucesso) {
+                    atualizarBotaoVisual(data.loja_aberta);
+                } else {
+                    alert("Erro ao mudar status");
+                }
+            })
+            .catch(err => alert("Erro de conexão ao mudar status"));
+        }
+        // ------------------------------------------------------------------
+
+        async function atualizarPainel() {
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                
+                document.getElementById('coluna-pendente').innerHTML = '';
+                document.getElementById('coluna-preparacao').innerHTML = '';
+                document.getElementById('coluna-rota').innerHTML = '';
+
+                let temNovo = false;
+
+                data.pedidos.forEach(pedido => {
+                    const card = criarCartao(pedido);
+                    
+                    if (pedido.status === 'PENDENTE') {
+                        document.getElementById('coluna-pendente').innerHTML += card;
+                        if (!idsConhecidos.has(pedido.id)) {
+                            temNovo = true;
+                            idsConhecidos.add(pedido.id);
+                        }
+                    } else if (pedido.status === 'EM_PREPARACAO') {
+                        document.getElementById('coluna-preparacao').innerHTML += card;
+                    } else if (pedido.status === 'SAIU_ENTREGA') {
+                        document.getElementById('coluna-rota').innerHTML += card;
+                    }
+                });
+
+                if (data.tocar_som && temNovo) {
+                    tocarSom();
+                }
+
+                const statusSpan = document.getElementById('status-conexao');
+                statusSpan.className = "badge bg-success";
+                statusSpan.innerText = "Atualizado Agora";
+
+            } catch (error) {
+                console.error("Erro:", error);
+                const statusSpan = document.getElementById('status-conexao');
+                statusSpan.className = "badge bg-danger";
+                statusSpan.innerText = "Erro de Conexão";
+            }
+        }
+
+        function criarCartao(p) {
+            let botoes = '';
+            let classeExtra = '';
+
+            if (p.status === 'PENDENTE') {
+                classeExtra = 'novo-pedido-alerta';
+                botoes = `
+                    <button onclick="mudarStatus(${p.id}, 'EM_PREPARACAO')" class="btn btn-success btn-acao">✅ Aceitar Pedido</button>
+                    <button onclick="mudarStatus(${p.id}, 'CANCELADO')" class="btn btn-outline-danger btn-sm mt-2 w-100">❌ Recusar</button>
+                `;
+            } else if (p.status === 'EM_PREPARACAO') {
+                botoes = `
+                    <div class="text-center text-info" style="border: 1px dashed #2196f3; padding: 5px; border-radius: 5px; margin-top: 10px;">
+                        <i class="bi bi-hourglass-split"></i> Aguardando Motoboy aceitar no App...
+                    </div>
+                `;
+            } else if (p.status === 'SAIU_ENTREGA') {
+                botoes = `
+                    <button onclick="mudarStatus(${p.id}, 'FINALIZADO')" class="btn btn-secondary btn-acao">🏁 Finalizar / Entregue</button>
+                `;
+            }
+
+            return `
+                <div class="card card-pedido status-${p.status} ${classeExtra} p-3">
+                    <div class="card-header-pedido">
+                        <span>#${p.id} - ${p.cliente}</span>
+                        <span class="text-valor">R$ ${p.total.toFixed(2)}</span>
+                    </div>
+                    
+                    <div class="info-clara">
+                        <i class="bi bi-geo-alt-fill"></i> ${p.endereco ? p.endereco : 'Retirada'}
+                    </div>
+                    <div class="info-clara">
+                        <i class="bi bi-credit-card-2-front-fill"></i> ${p.pagamento}
+                    </div>
+                    
+                    <div class="lista-itens">
+                        ${p.itens.map(i => `<div>• ${i}</div>`).join('')}
+                    </div>
+
+                    ${p.obs ? `<div class="alert alert-primary p-2 small text-white border-0 mt-2" style="background-color: #375a7f;"><i class="bi bi-info-circle-fill"></i> Obs: ${p.obs}</div>` : ''}
+
+                    <div class="mt-2">
+                        ${botoes}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function mudarStatus(id, novoStatus) {
+            if(!confirm("Mudar status do pedido?")) return;
+            try {
+                await fetch(`${API_STATUS}${id}/`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ novo_status: novoStatus })
+                });
+                atualizarPainel();
+            } catch (e) {
+                alert("Erro ao atualizar status");
+            }
+        }
+
+        function tocarSom() {
+            const audio = document.getElementById('som-alerta');
+            audio.play().catch(() => {});
+        }
+
+        setInterval(atualizarPainel, 5000);
+        atualizarPainel(); 
+        
+        document.body.addEventListener('click', () => {
+            const audio = document.getElementById('som-alerta');
+            audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(()=>{});
+        }, {once:true});
+
+        function alterarTaxaEntrega() {
+            let novaTaxa = prompt("Digite o novo valor da Taxa de Entrega para o App:");
+            
+            if (novaTaxa != null && novaTaxa != "") {
+                fetch('/config/definir_taxa/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ nova_taxa: novaTaxa })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if(data.sucesso) {
+                        alert("Taxa atualizada com sucesso!");
+                    } else {
+                        alert("Erro ao atualizar.");
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+Resumo do Fluxo de Trabalho (SaaS)
+
+    Mude lojaId = 1 no config.dart.
+
+    flutter build apk --release -> Renomeie para Loja1.apk.
+
+    flutter build web --release -> Suba para o site https://www.google.com/search?q=loja1.seusite.com.
+
+    Mude lojaId = 2 no config.dart.
+
+    flutter build apk --release -> Renomeie para Loja2.apk.
+
+    E assim por diante...
+
+O APLICATIVO DO CLIENTE E O PADRAO(DEFAULT) O COMANDO MUDA APENAS PARA GERAR O APK MOTOBOY 
+
+ --------- CLIENTE --------
+
+ flutter build apk --release
+ flutter build web --release --dart-define=TIPO_APP=CLIENTE --output build/site_cliente
+
+ ---------- MOTOBOY ---------
+
+flutter build apk --release --dart-define=TIPO_APP=MOTOBOY
+flutter build web --release --dart-define=TIPO_APP=MOTOBOY --output build/site_motoboy
+
+
+----------------------------//------------------------
+
+comando para testar local via cmd 
+
+----------motoboy-----------
+cd build\site_motoboy
+
+python -m http.server 9000
+
+--------cliente--------------------
+
+cd ..\site_cliente
+
+python -m http.server 9001
+
+
+------------ //-----------------
+
+ICONES PARA APLICATIVO .APK 
+
+Resumo para quando for fazer a Loja 3: Quando chegar a Loja 3, você só precisa:
+
+    Trocar o arquivo na pasta assets (loja3.png).
+
+    Mudar o caminho no pubspec.yaml.
+
+    Rodar o comando dart run flutter_launcher_icons de novo.
+
+    Mudar o nome no AndroidManifest.xml.

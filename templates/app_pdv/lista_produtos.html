@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block title %}Estoque{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <h2>Produtos / Estoque</h2>
+    <a href="{% url 'novo_produto' %}" class="btn">Novo Produto +</a>
+</div>
+
+<div class="card">
+    <table style="width:100%; border-collapse: collapse; color: #fff;">
+        <thead>
+            <tr style="text-align:left; border-bottom: 1px solid #444;">
+                <th style="padding:15px;">Nome</th>
+                <th>Preço do Produto (R$)</th> <th>Venda (R$)</th>
+                <th>Estoque</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for produto in produtos %}
+            <tr style="border-bottom: 1px solid #03dac6;">
+                <td style="padding:10px;">{{ produto.nome_venda }}</td>
+        
+                <td style="color: #03dac6;">R$ {{ produto.preco_compra }}</td>
+        
+                <td style="color: #03dac6; font-weight: bold;">R$ {{ produto.preco_venda }}</td>
+                <td style="font-weight: bold; color: #03dac6">{{ produto.item_estoque.quantidade_estoque }}</td>
+                <td>
+                    <a href="{% url 'editar_produto' produto.id %}" style="color: #03dac6; margin-right:10px;">Editar</a>
+                    <a href="{% url 'deletar_produto' produto.id %}" style="color: #ff5555;" onclick="return confirm('Tem certeza?')">Excluir</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" style="padding:20px; text-align:center;">Nenhum produto cadastrado.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

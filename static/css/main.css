@@ -1,0 +1,512 @@
+/* static/css/style.css */
+
+:root {
+    --bg-dark: #121212;
+    --bg-sidebar: #1e1e1e;
+    --bg-card: #2c2c2c;
+    --text-primary: #e0e0e0;
+    --text-secondary: #aaaaaa;
+    
+    /* NOVA COR PADRÃO PEDIDA */
+    --accent: #15a0a5;        
+    --accent-hover: #107a7e; /* Um pouco mais escuro para efeito hover */
+    
+    --success: #15a0a5;      /* Usando a mesma cor para sucesso/destaque */
+    --danger: #cf6679;
+    --sidebar-width: 260px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-dark);
+    color: var(--text-primary);
+    display: flex; /* ESSENCIAL PARA O MENU LATERAL */
+    min-height: 100vh;
+}
+
+/* --- BARRA LATERAL (SIDEBAR) --- */
+.sidebar {
+    width: var(--sidebar-width);
+    background-color: var(--bg-sidebar);
+    border-right: 1px solid #333;
+    position: fixed; /* ESSENCIAL PARA FIXAR NA ESQUERDA */
+    top: 0;
+    left: 0;
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+}
+
+.sidebar-header {
+    padding: 20px;
+    text-align: center;
+    border-bottom: 1px solid #333;
+}
+
+.sidebar-header h2 {
+    color: var(--accent);
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.sidebar-menu {
+    padding: 10px 0;
+    flex-grow: 1;
+}
+
+.sidebar a {
+    display: block;
+    padding: 15px 25px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.sidebar a:hover {
+    background-color: #333;
+    color: #fff;
+    border-left-color: var(--accent);
+}
+
+.sidebar hr {
+    border: 0;
+    border-top: 1px solid #333;
+    margin: 10px 20px;
+}
+
+/* --- CONTEÚDO PRINCIPAL --- */
+.content {
+    margin-left: var(--sidebar-width); /* ESSENCIAL: EMPURRA O CONTEÚDO */
+    padding: 30px;
+    width: calc(100% - var(--sidebar-width));
+    min-height: 100vh;
+}
+
+/* --- CARDS E CONTAINERS --- */
+.card {
+    background-color: var(--bg-card);
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    margin-bottom: 20px;
+}
+
+h2, h3 {
+    color: var(--text-primary);
+    margin-top: 0;
+}
+
+/* --- FORMULÁRIOS E INPUTS --- */
+label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+input, select, textarea {
+    width: 100%;
+    padding: 12px;
+    background-color: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 1rem;
+    margin-bottom: 15px;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+}
+
+/* --- BOTÕES --- */
+.btn, button {
+    display: inline-block;
+    background-color: var(--accent);
+    color: #000;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    text-decoration: none;
+    font-size: 1rem;
+    transition: background 0.3s;
+    text-align: center;
+}
+
+.btn:hover, button:hover {
+    background-color: var(--accent-hover);
+}
+
+.btn-danger {
+    background-color: var(--danger);
+    color: #fff;
+}
+
+/* --- TABELAS --- */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+th {
+    text-align: left;
+    padding: 12px;
+    background-color: #333;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+td {
+    padding: 12px;
+    border-bottom: 1px solid #444;
+    color: var(--text-secondary);
+}
+
+tr:hover td {
+    background-color: #333;
+    color: #fff;
+}
+
+/* --- AJUSTES PARA A TELA DE VENDAS --- */
+.pdv-container {
+    display: flex;
+    gap: 20px;
+    height: calc(100vh - 60px); 
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-dark); }
+::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+
+
+/* --- ESTILOS ESPECÍFICOS DA TELA DE VENDAS (PDV) --- */
+
+/* Layout da Tela Dividida */
+.pdv-container { 
+    display: flex; 
+    gap: 20px; 
+    height: calc(100vh - 100px); /* Ajuste para caber na tela sem rolagem global */
+}
+
+.painel-esquerdo { 
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 20px; 
+}
+
+/* O painel direito é um container flex */
+.painel-direito { 
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    height: 100%;
+}
+
+/* Área de rolagem dos itens do cupom */
+.lista-produtos-venda { 
+    flex-grow: 1; 
+    overflow-y: auto; 
+    border: 1px solid #444; 
+    margin-bottom: 15px; 
+    border-radius: 4px;
+}
+
+.lista-produtos-venda table { width: 100%; border-collapse: collapse; }
+.lista-produtos-venda th { position: sticky; top: 0; background-color: #333; z-index: 1; }
+.lista-produtos-venda th, .lista-produtos-venda td { padding: 10px; text-align: left; border-bottom: 1px solid #444; }
+
+/* Display do Valor Total */
+.total-display { 
+    font-size: 2.5em; 
+    font-weight: bold; 
+    color: var(--accent); 
+    text-align: right; 
+    margin-top: auto; 
+    padding: 10px 0;
+}
+
+/* Botão de remover item (X) */
+.btn-remover { 
+    color: #cf6679; 
+    cursor: pointer; 
+    font-weight: bold; 
+    text-align: center; 
+    width: 30px;
+}
+.btn-remover:hover { color: #ff5555; }
+
+
+/* --- PADRONIZAÇÃO DE TABELAS (NOVO) --- */
+
+/* Classe para o Nome Principal (Branco e Negrito) */
+.coluna-destaque {
+    color: #fff !important;
+    font-weight: bold;
+    padding: 10px;
+}
+
+/* Classe para Valores, Preços e Estoque (Cor do Tema e Negrito) */
+.coluna-valor {
+    color: #03dac6 !important;
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+/* Classe para informações secundárias (Ex: Preço de Custo) */
+.coluna-secundaria {
+    color: #aaa !important;
+    font-size: 0.9em;
+}
+
+/* Ajuste fino para as linhas da tabela */
+.table tbody tr {
+    border-bottom: 1px solid #333;
+}
+
+
+
+/* Estilo normal do dia */
+.card-dia {
+    background-color: #2b2b2b; /* Cor de fundo normal */
+    border: 1px solid #3e3e3e;
+    color: #fff;
+    /* ... resto do seu estilo */
+}
+
+/* Estilo para dias de outros meses (Opção 1) */
+.card-dia.out-of-month {
+    background-color: #1f1f1f; /* Fundo um pouco mais escuro */
+    color: #6c757d; /* Texto cinza (muted) */
+    opacity: 0.6;   /* Deixa tudo mais apagadinho */
+    pointer-events: none; /* Opcional: impede clicar nesses dias */
+}
+
+
+.sale-value {
+        display: block;
+        margin-top: 5px;       /* Reduzi um pouco a margem para caber */
+        font-size: 16px;       /* AUMENTEI: antes era 14px */
+        font-weight: 800;      /* Mais negrito */
+        color: #fff;
+        text-align: center;
+        letter-spacing: 0.5px; /* Espaçamento leve para leitura melhor */
+    }
+
+
+/* ==========================================================================
+   ESTILOS DO DASHBOARD (ÚLTIMAS VENDAS E CORREÇÕES)
+   Cole isso no final do style.css, logo após os estilos do PDV
+   ========================================================================== */
+
+/* 1. Remove linhas indesejadas nos cards */
+.card-body hr { display: none !important; margin: 0 !important; }
+.card-body .border-top { border-top: none !important; }
+
+/* 2. Estilo da Lista "Últimas Vendas" (Nome na esquerda, Valor na direita) */
+.lista-vendas {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.item-venda {
+    display: flex;
+    justify-content: space-between; /* O Pulo do Gato: afasta os itens */
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.item-venda:last-child { border-bottom: none; }
+
+.info-venda {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.nome-cliente {
+    font-weight: bold;
+    color: #fff;
+    font-size: 0.95rem;
+}
+
+.data-venda {
+    font-size: 0.8rem;
+    color: #888;
+}
+
+.valor-venda {
+    font-weight: bold;
+    color: var(--accent, #15a0a5); /* Verde do tema */
+    font-size: 1.1rem;
+}
+
+
+/* ==========================================================================
+   NOVOS ESTILOS DO PDV (TELA DE VENDAS) - BLINDADO
+   Cole isso no final do seu arquivo CSS
+   ========================================================================== */
+
+/* Ajuste do Container Principal para travar a altura SÓ na venda */
+.pdv-container {
+    display: flex;
+    gap: 20px;
+    height: calc(100vh - 80px); /* Ajuste fino para não gerar rolagem dupla */
+    align-items: stretch;
+    padding-bottom: 10px;
+    overflow: hidden; /* Impede que a tela de venda estoure */
+}
+
+/* Remove margens dos cards APENAS dentro do PDV para alinhamento perfeito */
+.pdv-container .card {
+    margin-bottom: 0 !important;
+}
+
+/* --- LADO ESQUERDO (50%) --- */
+.painel-esquerdo {
+    flex: 1 !important; /* Força 50% */
+    display: flex; 
+    flex-direction: column; 
+    gap: 20px;
+    height: 100%;
+}
+
+/* Card de cima (Dados) ocupa só o necessário */
+.painel-esquerdo .card:first-child { 
+    flex: 0 0 auto; 
+}
+
+/* Card de baixo (Produto) ocupa todo o resto */
+.card-auto-height {
+    flex: 1; 
+    display: flex; 
+    flex-direction: column;
+}
+
+/* --- LADO DIREITO (50%) --- */
+.painel-direito {
+    flex: 1 !important; /* Força 50% */
+    display: flex; 
+    flex-direction: column;
+    height: 100%; 
+}
+
+.card-full-height {
+    height: 100%; 
+    display: flex; 
+    flex-direction: column;
+    padding-bottom: 10px;
+}
+
+/* --- TABELA E CUPOM (Rolagem interna) --- */
+.cupom-body {
+    flex: 1; 
+    overflow-y: auto; /* Cria barra de rolagem aqui se encher */
+    border: 1px solid #333;
+    border-radius: 4px;
+    background: #222;
+    margin-bottom: 15px;
+    min-height: 150px; 
+}
+
+.cupom-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    table-layout: fixed; 
+}
+.cupom-table th { 
+    position: sticky; top: 0; 
+    background-color: #333; z-index: 2;
+    padding: 8px; text-align: left; 
+    font-size: 0.85rem; color: #fff;
+}
+.cupom-table td { 
+    padding: 8px; 
+    border-bottom: 1px solid #444; 
+    color: #ccc; font-size: 0.9rem; 
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis;
+}
+
+/* Larguras fixas para a tabela não quebrar */
+.cupom-table th:nth-child(1), .cupom-table td:nth-child(1) { width: 50%; } 
+.cupom-table th:nth-child(2), .cupom-table td:nth-child(2) { width: 15%; text-align: center; } 
+.cupom-table th:nth-child(3), .cupom-table td:nth-child(3) { width: 25%; text-align: right; } 
+.cupom-table th:nth-child(4), .cupom-table td:nth-child(4) { width: 10%; text-align: center; }
+
+/* Rodapé do Cupom */
+.cupom-footer {
+    padding-top: 10px;
+    border-top: 1px solid #444;
+}
+
+/* Exibição do Total */
+.total-display {
+    text-align: right; 
+    font-size: 2rem; 
+    font-weight: bold; 
+    color: var(--accent, #15a0a5); 
+    margin: 10px 0;
+}
+
+/* Helpers e Inputs do PDV */
+.row-flex { display: flex; gap: 15px; }
+.col-flex { flex: 1; }
+
+/* Checkbox container alinhado */
+.check-container { 
+    display: flex; align-items: center; gap: 10px; 
+    cursor: pointer; margin-top: 10px;
+}
+.check-container input { width: auto !important; margin: 0; }
+.check-container label { margin: 0; }
+
+/* Botão remover (X) */
+.btn-remove { 
+    background: none; border: none; 
+    color: #cf6679; cursor: pointer; 
+    padding: 0; width: auto; font-weight: bold; 
+}
+
+/* --- CORREÇÃO DO DASHBOARD (Linha extra) --- */
+.card-body hr { display: none !important; border: none !important; margin: 0 !important; }
+.card-body .border-top { border-top: none !important; }
+
+
+/* ==========================================================================
+   CORREÇÃO DOS BOTÕES DO PDV (LARGURA TOTAL)
+   ========================================================================== */
+
+/* Força os botões principais do PDV a ocuparem 100% da largura */
+.pdv-container button {
+    width: 100% !important;
+    display: block !important;
+    margin-top: 10px; /* Um pequeno espaço extra pra ficar bonito */
+}
+
+/* IMPORTANTE: Impede que o botãozinho de remover (X) da tabela fique gigante */
+.pdv-container .btn-remove {
+    width: auto !important;     /* Volta ao tamanho automático */
+    display: inline-block !important;
+    margin-top: 0;
+    padding: 0;
+}

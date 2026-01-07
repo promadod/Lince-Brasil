@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}Categorias Financeiras{% endblock %}
+{% block content %}
+<h2>Tipos de Receita e Despesa</h2>
+<div class="card" style="margin-bottom: 20px;">
+    <form method="POST" style="display: flex; gap: 10px;">
+        {% csrf_token %}
+        {{ form.nome }}
+        {{ form.tipo }}
+        <button type="submit" class="btn">Adicionar</button>
+    </form>
+</div>
+<div class="card">
+    <table style="width:100%; color: #fff;">
+        <thead>
+            <tr><th>Nome</th><th>Tipo</th><th>Ação</th></tr>
+        </thead>
+        <tbody>
+            {% for cat in categorias %}
+            <tr>
+                <td>{{ cat.nome }}</td>
+                <td>
+                    {% if cat.tipo == 'RECEITA' %}<span style="color:#03dac6;">Entrada</span>
+                    {% else %}<span style="color:#cf6679;">Saída</span>{% endif %}
+                </td>
+                <td><a href="{% url 'deletar_categoria' cat.id %}" style="color:#cf6679;">Excluir</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
