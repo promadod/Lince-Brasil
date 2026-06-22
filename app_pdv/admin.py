@@ -3,8 +3,9 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 from .models import (
     Loja, PerfilUsuario, Fornecedor, ItemEstoque, Produto, Cliente, 
-    Venda, ItemVenda, Caixa, EntradaEstoque, 
-    CategoriaTransacao, Transacao, Receita, Despesa, Moto, Motoboy
+    Venda, ItemVenda, Caixa, EntradaEstoque, PrecoFornecedorItem, PagamentoFiado, LiquidacaoVenda,
+    CategoriaTransacao, Transacao, Receita, Despesa, Moto, Motoboy, Rede,
+    FormaPagamentoLoja, LogFechamentoEstoqueDiario
 )
 
 admin.site.site_header = "Magno Distribuidora - Administração"
@@ -49,8 +50,39 @@ class SaasAdmin(admin.ModelAdmin):
 
 @admin.register(Loja)
 class LojaAdmin(admin.ModelAdmin):
-    list_display = ('id', 'nome', 'gerente', 'ativo', 'data_criacao') 
-    list_filter = ('ativo',)
+    list_display = ('id', 'nome', 'gerente', 'ativo', 'usa_fiado', 'permite_pagamento_dividido', 'controla_vasilhame_vazio', 'estoque_diario', 'monitorar_entrega', 'data_criacao') 
+    list_filter = ('ativo', 'monitorar_entrega', 'usa_fiado', 'permite_pagamento_dividido', 'controla_vasilhame_vazio', 'estoque_diario')
+    fieldsets = (
+        (None, {
+            'fields': ('nome', 'gerente', 'rede', 'nome_unidade', 'ativo', 'loja_aberta')
+        }),
+        ('Entregas', {
+            'fields': ('taxa_entrega_app', 'taxa_entrega_pdv', 'monitorar_entrega', 'usa_moveon')
+        }),
+        ('Depósito / Fiado', {
+            'fields': ('usa_fiado', 'permite_pagamento_dividido', 'controla_vasilhame_vazio', 'estoque_diario'),
+            'description': 'Habilite fiado para venda a prazo. Estoque diário exige controle de vasilhame ativo.',
+        }),
+        ('Assinatura SaaS', {
+            'fields': ('status_assinatura', 'data_vencimento', 'valor_mensalidade',
+                       'dias_tolerancia', 'ultimo_acesso', 'link_pagamento_atual'),
+            'classes': ('collapse',),
+        }),
+    )
+
+
+@admin.register(FormaPagamentoLoja)
+class FormaPagamentoLojaAdmin(SaasAdmin):
+    list_display = ('nome', 'codigo', 'exige_conferencia', 'cor', 'ativo', 'eh_sistema', 'ordem')
+    list_filter = ('ativo', 'eh_sistema', 'exige_conferencia')
+    list_editable = ('ativo', 'ordem', 'exige_conferencia')
+    search_fields = ('nome', 'codigo')
+    readonly_fields = ('eh_sistema',)
+
+    def has_delete_permission(self, request, obj=None):
+        if obj and obj.eh_sistema:
+            return False
+        return super().has_delete_permission(request, obj)
 
 
 @admin.register(Fornecedor)
@@ -77,15 +109,37 @@ class ItemEstoqueAdmin(SaasAdmin):
 @admin.register(Produto)
 class ProdutoAdmin(SaasAdmin):
     
-    list_display = ('id', 'nome_venda', 'preco_compra', 'preco_venda', 'lucro_unidade', 'fornecedor')
+    list_display = ('id', 'nome_venda', 'preco_compra', 'preco_venda', 'lucro_unidade', 'vende_vasilhame_vazio', 'fornecedor')
     search_fields = ('nome_venda',)
-    list_filter = ('fornecedor',)
+    list_filter = ('fornecedor', 'vende_vasilhame_vazio')
     list_editable = ('preco_venda',)
     readonly_fields = ('id',) 
     
     @admin.display(description='Lucro Unit.')
     def lucro_unidade(self, obj):
         return f"R$ {obj.preco_venda - obj.preco_compra:.2f}"
+
+
+@admin.register(PrecoFornecedorItem)
+class PrecoFornecedorItemAdmin(SaasAdmin):
+    list_display = ('item_estoque', 'fornecedor', 'preco_compra', 'ativo')
+    list_filter = ('ativo',)
+    search_fields = ('item_estoque__nome', 'fornecedor__nome')
+
+
+@admin.register(PagamentoFiado)
+class PagamentoFiadoAdmin(SaasAdmin):
+    list_display = ('venda', 'valor', 'meio_liquidacao', 'data_pagamento', 'registrado_por')
+    list_filter = ('meio_liquidacao', 'data_pagamento')
+    search_fields = ('venda__id', 'venda__cliente__nome')
+
+
+@admin.register(LiquidacaoVenda)
+class LiquidacaoVendaAdmin(SaasAdmin):
+    list_display = ('venda', 'valor', 'meio_liquidacao', 'conferencia_ok', 'data_liquidacao', 'registrado_por')
+    list_filter = ('meio_liquidacao', 'conferencia_ok', 'data_liquidacao')
+    search_fields = ('venda__id', 'venda__cliente__nome')
+    readonly_fields = ('data_liquidacao',)
 
 
 @admin.register(Cliente)
@@ -104,11 +158,18 @@ class ItemVendaInline(admin.TabularInline):
         return f"R$ {obj.quantidade * obj.preco_unitario:.2f}"
 
 
+@admin.register(EntradaEstoque)
+class EntradaEstoqueAdmin(SaasAdmin):
+    list_display = ('id', 'item', 'fornecedor', 'quantidade', 'preco_unitario_compra', 'data_entrada', 'observacao')
+    list_filter = ('data_entrada',)
+    search_fields = ('item__nome',)
+
+
 @admin.register(Venda)
 class VendaAdmin(SaasAdmin):
-    list_display = ('id', 'cliente_nome', 'total', 'status', 'forma_pagamento', 'data_venda')
+    list_display = ('id', 'cliente_nome', 'total', 'status', 'eh_fiado', 'forma_pagamento', 'meio_liquidacao', 'data_venda')
     
-    list_filter = ('status', 'forma_pagamento', 'data_venda', 'loja')
+    list_filter = ('status', 'eh_fiado', 'forma_pagamento', 'meio_liquidacao', 'data_venda', 'loja')
     search_fields = ('cliente__nome', 'id')
     inlines = [ItemVendaInline]
     date_hierarchy = 'data_venda'
@@ -122,13 +183,6 @@ class VendaAdmin(SaasAdmin):
 class CaixaAdmin(SaasAdmin):
     list_display = ('id', 'data', 'saldo_inicial', 'saldo_final', 'status', 'loja')
     list_filter = ('status', 'data')
-
-
-@admin.register(EntradaEstoque)
-class EntradaEstoqueAdmin(SaasAdmin):
-    list_display = ('id', 'item', 'quantidade', 'data_entrada', 'observacao')
-    list_filter = ('data_entrada',)
-    search_fields = ('item__nome',)
 
 
 @admin.register(CategoriaTransacao)
@@ -184,6 +238,18 @@ class TransacaoGeralAdmin(SaasAdmin):
         cor = "green" if obj.categoria and obj.categoria.tipo == 'RECEITA' else "red"
         return f"R$ {obj.valor}"
 
+@admin.register(Rede)
+class RedeAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'slug', 'ativa')
+    prepopulated_fields = {'slug': ('nome',)}
 
 admin.site.register(Moto, SaasAdmin)
 admin.site.register(Motoboy, SaasAdmin)
+
+
+@admin.register(LogFechamentoEstoqueDiario)
+class LogFechamentoEstoqueDiarioAdmin(SaasAdmin):
+    list_display = ('data_referencia', 'tipo', 'item_estoque', 'quantidade_cheios', 'quantidade_vazios', 'usuario', 'registrado_em')
+    list_filter = ('tipo', 'data_referencia')
+    search_fields = ('item_estoque__nome',)
+    readonly_fields = ('registrado_em',)

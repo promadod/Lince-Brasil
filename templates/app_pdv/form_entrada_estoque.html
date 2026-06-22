@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+<style>
+    .select2-container--default .select2-selection--single {
+        background-color: #2c2c2c;
+        border: 1px solid #444;
+        color: #fff;
+        height: 38px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        color: #e0e0e0;
+        line-height: 36px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow { height: 36px; }
+    .select2-dropdown { background-color: #2c2c2c; border: 1px solid #444; }
+    .select2-search__field { background-color: #1e1e1e; color: #fff; border: 1px solid #555; }
+    .select2-results__option { color: #e0e0e0; }
+    .select2-results__option--highlighted.select2-results__option--selectable {
+        background-color: #28a745; color: white;
+    }
+    .hint { color: #aaa; font-size: 0.9em; margin-top: 5px; }
+</style>
+
+<h2 style="margin-bottom:20px;">{{ titulo }}</h2>
+
+<div class="card" style="max-width: 600px;">
+    <form method="post">
+        {% csrf_token %}
+
+        {% for field in form %}
+        <div style="margin-bottom: 15px;">
+            <label style="display:block; margin-bottom:5px;">{{ field.label }}</label>
+            {{ field }}
+            {% if field.name == 'preco_unitario_compra' %}
+            <p class="hint">Preenchido automaticamente ao selecionar o fornecedor (se houver preço cadastrado). Recalcula o custo médio dos produtos.</p>
+            {% endif %}
+            {% if field.errors %}
+                <small style="color: #ff5555;">{{ field.errors }}</small>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <div style="margin-top: 20px;">
+            <button type="submit" class="btn btn-success">Registrar Entrada</button>
+            <a href="{% url 'lista_estoque' %}" class="btn" style="background-color: #333; color:#fff; margin-left:10px;">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+    const precosUrlBase = "{% url 'api_precos_fornecedor_item' item_id=0 %}".replace('/0/', '/');
+    let mapaPrecos = {};
+
+    function atualizarMapaPrecos(itemId) {
+        mapaPrecos = {};
+        if (!itemId) return;
+        fetch(precosUrlBase + itemId + '/')
+            .then(r => r.json())
+            .then(dados => {
+                dados.forEach(p => { mapaPrecos[p.fornecedor_id] = p.preco_compra; });
+                aplicarPrecoFornecedor();
+            })
+            .catch(() => {});
+    }
+
+    function aplicarPrecoFornecedor() {
+        const fornId = $('#id_fornecedor').val();
+        const precoInput = $('#id_preco_unitario');
+        if (fornId && mapaPrecos[fornId] !== undefined) {
+            precoInput.val(mapaPrecos[fornId]);
+        }
+    }
+
+    $(document).ready(function() {
+        $('.select-search').select2({
+            placeholder: "Digite para pesquisar...",
+            allowClear: true,
+            width: '100%'
+        });
+
+        $('#id_item_estoque').on('change', function() {
+            atualizarMapaPrecos(this.value);
+        });
+
+        $('#id_fornecedor').on('change', aplicarPrecoFornecedor);
+
+        const itemInicial = $('#id_item_estoque').val();
+        if (itemInicial) atualizarMapaPrecos(itemInicial);
+    });
+</script>
+
+{% endblock %}

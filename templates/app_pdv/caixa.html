@@ -2,7 +2,7 @@
 {% block title %}Fluxo de Caixa{% endblock %}
 
 {% block content %}
-<h2 style="margin-bottom: 20px;">Fluxo de Caixa - {{ hoje|date:"d/m/Y" }}</h2>
+<h2 style="margin-bottom: 20px;">Fluxo de Caixa (Turnos) - {{ hoje|date:"d/m/Y" }}</h2>
 
 <div style="display: flex; gap: 10px; margin-bottom: 20px;">
     <a href="{% url 'adicionar_transacao' %}" class="btn" style="background-color: #15A0A5; border: 1px solid #555;">
@@ -14,71 +14,91 @@
 </div>
 
 {% if not caixa_aberto %}
-    <div class="card" style="max-width: 400px; margin: 0 auto; text-align: center;">
-        <h3 style="color: #15A0A5;">O Caixa está Fechado</h3>
-        <p>Informe o saldo inicial (troco) para começar o dia.</p>
+    <div class="card" style="max-width: 400px; margin: 0 auto; text-align: center; border: 2px solid #444;">
+        <h3 style="color: #15A0A5;"><i class="fas fa-door-open"></i> Abrir Novo Caixa</h3>
+        <p>Informe o saldo inicial (troco) para começar este turno.</p>
         <form method="POST">
             {% csrf_token %}
             <label>Saldo Inicial (R$)</label>
-            <input type="number" step="0.01" name="saldo_inicial" value="0.00" style="text-align: center; font-size: 1.5em;">
-            <button type="submit" class="btn" style="width: 100%; margin-top: 10px;">ABRIR CAIXA</button>
+            <input type="number" step="0.01" name="saldo_inicial" value="0.00" style="text-align: center; font-size: 1.5em;" class="form-control mb-3">
+            <button type="submit" class="btn btn-success" style="width: 100%; font-weight:bold;">CONFIRMAR ABERTURA</button>
         </form>
     </div>
-    <hr style="border-color: #444; margin: 30px 0;">
 
-    
-
+    {% if historico_turnos %}
+    <div style="margin-top: 40px;">
+        <h4 style="border-bottom: 1px solid #444; padding-bottom: 10px;">Turnos Finalizados Hoje:</h4>
+        <div class="table-responsive">
+            <table class="table table-dark table-striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Abertura</th>
+                        <th>Fechamento</th>
+                        <th>Saldo Inicial</th>
+                        <th>Saldo Final</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for turno in historico_turnos %}
+                    <tr>
+                        <td>#{{ turno.id }}</td>
+                        <td>{{ turno.data_hora_abertura|date:"H:i" }}</td>
+                        <td>{{ turno.data_hora_fechamento|date:"H:i" }}</td>
+                        <td>R$ {{ turno.saldo_inicial }}</td>
+                        <td>R$ {{ turno.saldo_final }}</td>
+                        <td>
+                            <a href="{% url 'ver_recibo_fechamento' turno.id %}" class="btn btn-sm btn-info">
+                                <i class="fas fa-print"></i> Recibo
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
 
 {% else %}
+    <div class="alert alert-success" style="background-color: #1e3a2f; border-color: #235c44; color: #fff;">
+        <i class="fas fa-clock"></i> <strong>Turno Aberto às:</strong> {{ caixa.data_hora_abertura|date:"H:i" }}
+    </div>
+
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;">
         
         <div class="card" style="border-left: 5px solid #03dac6;">
             <h4>Saldo em Gaveta (Dinheiro)</h4>
             <h2 style="color: #03dac6;">R$ {{ saldo_atual_caixa|floatformat:2 }}</h2>
-            <small>Inicial: R$ {{ saldo_inicial }} + Vendas: R$ {{ resumo.dinheiro }}</small>
+            <small>Inicial: R$ {{ saldo_inicial }} + Dinheiro recebido (vendas + fiado): R$ {{ total_dinheiro|floatformat:2 }}</small>
         </div>
 
         <div class="card" style="border-left: 5px solid #bb86fc;">
-            <h4>Total Vendido Hoje</h4>
-            <h2 style="color: #bb86fc;">R$ {{ total_vendas|floatformat:2 }}</h2>
-            <small>Somando todas as formas de pagto</small>
+            <h4>Total Recebido (Turno)</h4>
+            <h2 style="color: #bb86fc;">R$ {{ total_recebido_turno|floatformat:2 }}</h2>
+            <small>Vendas: R$ {{ total_vendas|floatformat:2 }} + Fiado: R$ {{ total_fiado_turno|floatformat:2 }}</small>
         </div>
 
     </div>
 
-    <h3>Detalhamento por Pagamento</h3>
+    <h3>Detalhamento por Meio de Liquidação</h3>
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-        
-        <div class="card" style="text-align: center;">
-            <p style="margin:0; color:#aaa;">Dinheiro</p>
-            <h2 style="margin:5px 0; color: #03dac6;">R$ {{ resumo.dinheiro|floatformat:2 }}</h2>
+        {% for item in resumo_pagamentos %}
+        <div class="card" style="text-align: center; border-top: 3px solid {{ item.cor }};">
+            <p style="margin:0; color:#aaa;">{{ item.nome }}</p>
+            <h2 style="margin:5px 0; color: {{ item.cor }};">R$ {{ item.total|floatformat:2 }}</h2>
         </div>
-
-        <div class="card" style="text-align: center;">
-            <p style="margin:0; color:#aaa;">Pix</p>
-            <h2 style="margin:5px 0; color: #03dac6;">R$ {{ resumo.pix|floatformat:2 }}</h2>
-        </div>
-
-        <div class="card" style="text-align: center;">
-            <p style="margin:0; color:#aaa;">Cartão de Crédito</p>
-            <h2 style="margin:5px 0; color: #03dac6;">R$ {{ resumo.credito|floatformat:2 }}</h2>
-        </div>
-
-        <div class="card" style="text-align: center;">
-            <p style="margin:0; color:#aaa;">Cartão de Débito</p>
-            <h2 style="margin:5px 0; color: #03dac6;">R$ {{ resumo.debito|floatformat:2 }}</h2>
-        </div>
-
+        {% endfor %}
     </div>
 
-    <div style="text-align: right;">
-        <form action="{% url 'fechar_caixa' %}" method="POST" onsubmit="return confirm('Tem certeza? Isso irá encerrar o dia e gerar o recibo.');">
+    <div style="text-align: right; margin-top: 30px;">
+        <form action="{% url 'fechar_caixa' %}" method="POST" onsubmit="return confirm('Tem certeza que deseja encerrar este turno?');">
             {% csrf_token %}
-            <button type="submit" class="btn" style="background-color: #03dac6; font-size: 1.2em; padding: 15px 30px;">
-                <i class="fas fa-lock"></i> FECHAR CAIXA DO DIA
+            <button type="submit" class="btn" style="background-color: #cf6679; font-size: 1.2em; padding: 15px 30px; color: white;">
+                <i class="fas fa-lock"></i> FECHAR TURNO ATUAL
             </button>
         </form>
-        
     </div>
 {% endif %}
 {% endblock %}

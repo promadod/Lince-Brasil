@@ -1,15 +1,83 @@
 {% extends 'base.html' %}
+{% load pdv_extras %}
 {% block title %}Histórico de Vendas{% endblock %}
 
 {% block content %}
 <h2 style="margin-bottom: 20px;">Histórico de Vendas</h2>
+
+<div class="card vendas-filtros-card">
+    <h3 class="vendas-filtros-titulo"><i class="fas fa-search"></i> Consultar vendas</h3>
+    <p class="vendas-filtros-desc">Combine filtros para buscar em lote (ex.: status cancelada) ou use ID/valor para consulta avulsa.</p>
+
+    <form method="get" action="{% url 'lista_vendas' %}" class="vendas-filtros-form">
+        <div class="vendas-filtros-grid">
+            <div class="vendas-filtro-field">
+                <label for="filtro_data_inicio">Data início</label>
+                <input type="date" id="filtro_data_inicio" name="data_inicio" value="{{ filtros.data_inicio }}">
+            </div>
+            <div class="vendas-filtro-field">
+                <label for="filtro_data_fim">Data fim</label>
+                <input type="date" id="filtro_data_fim" name="data_fim" value="{{ filtros.data_fim }}">
+            </div>
+            <div class="vendas-filtro-field vendas-filtro-field-wide">
+                <label for="filtro_status">Status</label>
+                <select id="filtro_status" name="filtro_status">
+                    {% historico_status_opcoes as opcoes_status_list %}
+                    {% for codigo, rotulo in opcoes_status_list %}
+                    <option value="{{ codigo }}"{% if filtros.filtro_status == codigo %} selected{% endif %}>{{ rotulo }}</option>
+                    {% empty %}
+                    <option value="">Todos os status</option>
+                    <option value="CANCELADO">Cancelada</option>
+                    <option value="VENDA_NA_LOJA">Venda na loja (PDV)</option>
+                    <option value="FINALIZADO">Finalizado (geral)</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="vendas-filtro-field">
+                <label for="filtro_origem">Origem</label>
+                <select id="filtro_origem" name="origem">
+                    <option value="">Todas</option>
+                    {% historico_origem_opcoes as opcoes_origem_list %}
+                    {% for codigo, rotulo in opcoes_origem_list %}
+                    <option value="{{ codigo }}"{% if filtros.origem == codigo %} selected{% endif %}>{{ rotulo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="vendas-filtro-field">
+                <label for="filtro_venda_id">ID da venda</label>
+                <input type="text" id="filtro_venda_id" name="venda_id" value="{{ filtros.venda_id }}" placeholder="#123" inputmode="numeric">
+            </div>
+            <div class="vendas-filtro-field">
+                <label for="filtro_valor">Valor (R$)</label>
+                <input type="text" id="filtro_valor" name="valor" value="{{ filtros.valor }}" placeholder="100.00" inputmode="decimal">
+            </div>
+            <div class="vendas-filtro-field vendas-filtro-field-wide">
+                <label for="filtro_cliente">Nome do cliente</label>
+                <input type="text" id="filtro_cliente" name="cliente" value="{{ filtros.cliente }}" placeholder="Buscar por nome...">
+            </div>
+        </div>
+
+        <div class="vendas-filtros-acoes">
+            <button type="submit" class="btn vendas-btn-filtrar">
+                <i class="fas fa-filter"></i> Filtrar
+            </button>
+            {% if filtros_ativos %}
+            <a href="{% url 'lista_vendas' %}" class="btn vendas-btn-limpar">Limpar filtros</a>
+            {% endif %}
+            <span class="vendas-filtros-contagem">
+                {{ total_resultados }} venda{{ total_resultados|pluralize }} encontrada{{ total_resultados|pluralize }}
+            </span>
+        </div>
+    </form>
+</div>
 
 <div class="card">
     <table style="width:100%; color: #fff;">
         <thead>
             <tr style="text-align:left; border-bottom: 1px solid #444;">
                 <th style="padding:10px;">ID</th>
-                <th style="text-align: center;">Origem</th> <th>Data</th>
+                <th style="text-align: center;">Origem</th> 
+                <th>Data</th>
                 <th>Cliente</th>
                 <th>Status</th>
                 <th>Total</th>
@@ -42,6 +110,16 @@
                             <i class="fas fa-ban"></i> VENDA CANCELADA
                         </span>
 
+                    {% elif venda.status == 'AGUARDANDO_FINALIZAR' %}
+                        <span style="background-color: #ffbb33; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">
+                            <i class="fas fa-pause-circle"></i> AGUARDANDO FINALIZAR
+                        </span>
+
+                    {% elif venda.status == 'FIADO' %}
+                        <span style="background-color: #ff9800; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">
+                            <i class="fas fa-hand-holding-usd"></i> FIADO — R$ {{ venda.saldo_devedor|floatformat:2 }} pendente
+                        </span>
+
                     {% elif venda.eh_entrega %}
                         {% if venda.status_entrega == 'PENDENTE' %}
                             <span style="background-color: #ff9800; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">
@@ -59,8 +137,17 @@
 
                     {% else %}
                         {% if venda.status == 'FINALIZADO' %}
-                            <span style="background-color: #03dac6; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">VENDA NA LOJA</span>
-                        {% elif venda.status == 'ABERTO' %}
+                            
+                            {% if venda.origem == 'APP' %}
+                                <span style="background-color: #ffc107; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">
+                                    <i class="fas fa-shopping-bag"></i> RETIRADA NA LOJA
+                                </span>
+                            {% else %}
+                                <span style="background-color: #03dac6; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">
+                                    VENDA NA LOJA
+                                </span>
+                            {% endif %}
+                            {% elif venda.status == 'ABERTO' %}
                             <span style="background-color: #eee021ff; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">EM ABERTO</span>
                         {% elif venda.status == 'ORCAMENTO' %}
                             <span style="background-color: #bb86fc; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">ORÇAMENTO</span>
@@ -75,28 +162,31 @@
 
                 <td style="text-align: center;">
                     {% if venda.status != 'CANCELADO' %}
-                        {% if venda.eh_entrega and venda.forma_pagamento == 'DINHEIRO' %}
+                        {% if venda.exige_conferencia_pagamento %}
                             {% if venda.conferencia_ok %}
                                 <span style="color: #66bb6a; font-weight: bold; font-size: 0.9em;">
                                     <i class="fas fa-check-circle"></i> OK
                                 </span>
-                            {% elif venda.status_entrega == 'ENTREGUE' %}
-                                <button onclick="confirmarDinheiro({{ venda.id }})" 
-                                        style="border: none; background-color: #ff9800; color: #000; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 0.9em; cursor: pointer;"
-                                        title="Confirmar Recebimento">
-                                    <i class="fas fa-hand-holding-usd"></i> Receber
-                                </button>
                             {% else %}
-                                <span style="color: #777; font-size: 0.8em;">-</span>
+                                {% if venda.eh_entrega and venda.status_entrega != 'ENTREGUE' %}
+                                    <span style="color: #ff9800; font-size: 0.8em;" title="Aguardando retorno do motoboy">
+                                        <i class="fas fa-motorcycle"></i> Em Rota
+                                    </span>
+                                {% else %}
+                                    <button onclick="confirmarDinheiro({{ venda.id }})" 
+                                            style="border: none; background-color: #ff9800; color: #000; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 0.9em; cursor: pointer;"
+                                            title="Confirmar Recebimento na Gaveta">
+                                        <i class="fas fa-hand-holding-usd"></i> Receber
+                                    </button>
+                                {% endif %}
                             {% endif %}
                         {% else %}
-                            <span style="color: #555;">-</span>
+                            <span style="color: #555;" title="Pagamento digital não exige conferência">-</span>
                         {% endif %}
                     {% else %}
                         <span style="color: #e53935; font-size: 0.8em;">X</span>
                     {% endif %}
                 </td>
-
                 <td class="text-end">
                     <a href="{% url 'detalhes_venda' venda.id %}" 
                        style="display: inline-block; background-color: #03dac6; color: #000; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9em; margin-right: 5px;" 
@@ -104,13 +194,15 @@
                         <i class="fas fa-eye"></i>
                     </a>
                     
-                    {% if venda.status == 'ABERTO' %}
+                    {% if venda.status == 'ABERTO' or venda.status == 'AGUARDANDO_FINALIZAR' %}
                         <a href="{% url 'retomar_venda' venda.id %}" 
                            style="display: inline-block; background-color: #ff9800; color: #000; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9em; margin-right: 5px;" 
-                           title="Continuar Venda">
+                           title="Retomar Venda">
                             <i class="fas fa-play"></i>
                         </a>
+                    {% endif %}
 
+                    {% if venda.status == 'ABERTO' %}
                         <a href="{% url 'excluir_venda' venda.id %}" 
                            style="display: inline-block; background-color: #cf6679; color: #fff; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9em;" 
                            title="Cancelar/Excluir Venda"
@@ -121,7 +213,13 @@
                 </td>
             </tr>
             {% empty %}
-            <tr><td colspan="8" style="text-align:center; padding: 20px;">Nenhuma venda registrada.</td></tr>
+            <tr><td colspan="8" style="text-align:center; padding: 20px;">
+                {% if filtros_ativos %}
+                    Nenhuma venda encontrada com os filtros informados.
+                {% else %}
+                    Nenhuma venda registrada.
+                {% endif %}
+            </td></tr>
             {% endfor %}
         </tbody>
     </table>

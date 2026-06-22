@@ -13,7 +13,7 @@ class ProdutoCatalogoSerializer(serializers.ModelSerializer):
     preco_venda = serializers.FloatField()
     class Meta:
         model = Produto
-        fields = ['id', 'nome_venda', 'preco_venda','estoque_atual']
+        fields = ['id', 'nome_venda', 'preco_venda','estoque_atual','imagem']
         
 
 class ItemVendaSerializer(serializers.ModelSerializer):
@@ -21,7 +21,7 @@ class ItemVendaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ItemVenda
-        fields = ['id', 'produto', 'produto_nome', 'quantidade', 'preco_unitario']
+        fields = ['id', 'produto', 'produto_nome', 'quantidade', 'preco_unitario', 'custo_unitario']
 
 class VendaSerializer(serializers.ModelSerializer):
     cliente_nome = serializers.CharField(source='cliente.nome', read_only=True, allow_null=True)

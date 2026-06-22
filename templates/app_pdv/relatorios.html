@@ -4,6 +4,16 @@
 {% block content %}
 <h2 style="margin-bottom: 20px;">Relatórios Gerenciais</h2>
 
+{% if messages %}
+<div style="margin-bottom: 15px;">
+    {% for message in messages %}
+    <div class="alert" style="padding: 10px 15px; border-radius: 5px; margin-bottom: 8px; background: {% if message.tags == 'success' %}#1b4332{% else %}#4a1515{% endif %}; color: #fff;">
+        {{ message }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
 <div class="card" style="margin-bottom: 20px;">
     <form method="GET" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
         <div>
@@ -24,10 +34,27 @@
                 <option value="clientes" {% if tipo_relatorio == 'clientes' %}selected{% endif %}>Ranking Clientes</option>
                 <option value="fechamentos" {% if tipo_relatorio == 'fechamentos' %}selected{% endif %}>Histórico de Fechamentos</option>
                 <option value="entregadores" {% if tipo_relatorio == 'entregadores' %}selected{% endif %}>Performance Entregadores</option>
+                <option value="fiado" {% if tipo_relatorio == 'fiado' %}selected{% endif %}>Vendas Fiado (Pendentes)</option>
+                <option value="fiado_quitado" {% if tipo_relatorio == 'fiado_quitado' %}selected{% endif %}>Vendas Fiado Quitadas</option>
             </select>
         </div>
+
+        {% if mostrar_filtro_lojas %}
         <div>
-            <label style="visibility: hidden;">Filtrar</label> <button type="submit" class="btn" style="height: 60px; display: flex; align-items: center;">
+            <label style="color: #15A0A5; font-weight: bold;">Unidade / Loja</label>
+            <select name="loja_id" class="form-control" style="width: 220px; border-color: #15A0A5;">
+                <option value="todas" {% if loja_selecionada_id == 'todas' %}selected{% endif %}>🟢 Todas as Lojas</option>
+                {% for l in lojas_permitidas %}
+                    <option value="{{ l.id }}" {% if loja_selecionada_id == l.id|stringformat:"s" %}selected{% endif %}>
+                        🏠 {{ l.nome }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        <div>
+            <label style="visibility: hidden;">Filtrar</label> 
+            <button type="submit" class="btn" style="height: 60px; display: flex; align-items: center; background-color: #15A0A5; color: white;">
                 <i class="fas fa-filter" style="margin-right: 5px;"></i> Filtrar
             </button>
         </div>
@@ -36,50 +63,39 @@
 
 {% if tipo_relatorio == 'pagamento' %}
 <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px;">
-    <div class="card" style="flex: 1; min-width: 200px; text-align: center; border-top: 5px solid #28a745;">
-        <i class="fas fa-money-bill-wave" style="font-size: 2.5em; color: #28a745; margin-bottom: 10px;"></i>
-        <h4 style="margin: 0;">Dinheiro</h4>
-        <h2 style="color: #28a745; margin: 10px 0;">R$ {{ dados_pagamento.dinheiro.total|floatformat:2 }}</h2>
-        <small style="color: #aaa;">{{ dados_pagamento.dinheiro.qtd }} Vendas</small>
+    {% for item in dados_pagamento.lista %}
+    <div class="card" style="flex: 1; min-width: 200px; text-align: center; border-top: 5px solid {{ item.cor }};">
+        <i class="fas {{ item.icone }}" style="font-size: 2.5em; color: {{ item.cor }}; margin-bottom: 10px;"></i>
+        <h4 style="margin: 0;">{{ item.nome }}</h4>
+        <h2 style="color: {{ item.cor }}; margin: 10px 0;">R$ {{ item.total|floatformat:2 }}</h2>
+        <small style="color: #aaa;">{{ item.qtd }} Vendas</small>
     </div>
-    <div class="card" style="flex: 1; min-width: 200px; text-align: center; border-top: 5px solid #03dac6;">
-        <i class="fas fa-qrcode" style="font-size: 2.5em; color: #03dac6; margin-bottom: 10px;"></i>
-        <h4 style="margin: 0;">Pix</h4>
-        <h2 style="color: #03dac6; margin: 10px 0;">R$ {{ dados_pagamento.pix.total|floatformat:2 }}</h2>
-        <small style="color: #aaa;">{{ dados_pagamento.pix.qtd }} Vendas</small>
-    </div>
-    <div class="card" style="flex: 1; min-width: 200px; text-align: center; border-top: 5px solid #29b6f6;">
-        <i class="fas fa-credit-card" style="font-size: 2.5em; color: #29b6f6; margin-bottom: 10px;"></i>
-        <h4 style="margin: 0;">Crédito</h4>
-        <h2 style="color: #29b6f6; margin: 10px 0;">R$ {{ dados_pagamento.credito.total|floatformat:2 }}</h2>
-        <small style="color: #aaa;">{{ dados_pagamento.credito.qtd }} Vendas</small>
-    </div>
-    <div class="card" style="flex: 1; min-width: 200px; text-align: center; border-top: 5px solid #ff9800;">
-        <i class="fas fa-wallet" style="font-size: 2.5em; color: #ff9800; margin-bottom: 10px;"></i>
-        <h4 style="margin: 0;">Débito</h4>
-        <h2 style="color: #ff9800; margin: 10px 0;">R$ {{ dados_pagamento.debito.total|floatformat:2 }}</h2>
-        <small style="color: #aaa;">{{ dados_pagamento.debito.qtd }} Vendas</small>
-    </div>
+    {% endfor %}
 </div>
 
 <div class="card">
     <h3>Distribuição Proporcional</h3>
     <div style="width: 100%; height: 30px; background-color: transparent; border-radius: 15px; overflow: hidden; display: flex; margin-top: 15px; border: 1px solid #444;">
         {% if dados_pagamento.total_geral > 0 %}
-            <div style="flex: {{ dados_pagamento.dinheiro.total|floatformat:0 }}; background-color: #28a745;" title="Dinheiro: R$ {{ dados_pagamento.dinheiro.total|floatformat:2 }}"></div>
-            <div style="flex: {{ dados_pagamento.pix.total|floatformat:0 }}; background-color: #03dac6;" title="Pix: R$ {{ dados_pagamento.pix.total|floatformat:2 }}"></div>
-            <div style="flex: {{ dados_pagamento.credito.total|floatformat:0 }}; background-color: #29b6f6;" title="Crédito: R$ {{ dados_pagamento.credito.total|floatformat:2 }}"></div>
-            <div style="flex: {{ dados_pagamento.debito.total|floatformat:0 }}; background-color: #ff9800;" title="Débito: R$ {{ dados_pagamento.debito.total|floatformat:2 }}"></div>
+            {% for item in dados_pagamento.lista %}
+            <div style="flex: {{ item.total|floatformat:0 }}; background-color: {{ item.cor }};" title="{{ item.nome }}: R$ {{ item.total|floatformat:2 }}"></div>
+            {% endfor %}
         {% else %}
             <div style="width: 100%; text-align: center; color: #777; line-height: 30px; background-color: #333;">Sem dados no período</div>
         {% endif %}
     </div>
-    <div style="display: flex; justify-content: space-around; margin-top: 10px; font-size: 0.9em;">
-        <span style="color: #28a745;">● Dinheiro</span>
-        <span style="color: #03dac6;">● Pix</span>
-        <span style="color: #29b6f6;">● Crédito</span>
-        <span style="color: #ff9800;">● Débito</span>
+    <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px; margin-top: 10px; font-size: 0.9em;">
+        {% for item in dados_pagamento.lista %}
+        <span style="color: {{ item.cor }};">● {{ item.nome }}</span>
+        {% endfor %}
     </div>
+</div>
+
+<div class="card" style="margin-top: 20px; text-align: center; border-top: 5px solid #15A0A5;">
+    <i class="fas fa-calculator" style="font-size: 2.5em; color: #15A0A5; margin-bottom: 10px;"></i>
+    <h4 style="margin: 0;">Total Geral</h4>
+    <h2 style="color: #15A0A5; margin: 10px 0;">R$ {{ dados_pagamento.total_geral|floatformat:2 }}</h2>
+    <small style="color: #aaa;">Soma de todas as formas de pagamento no período</small>
 </div>
 {% endif %}
 
@@ -96,6 +112,12 @@
         <h3>Vendas PDV (Balcão)</h3>
         <h2 style="color: #03dac6;">R$ {{ dados_origem.total_pdv|floatformat:2 }}</h2>
         <p>{{ dados_origem.qtd_pdv }} Vendas</p>
+    </div>
+    <div class="card" style="flex: 1; min-width: 250px; text-align: center; border-top: 5px solid #15A0A5;">
+        <i class="fas fa-chart-line" style="font-size: 3em; color: #15A0A5; margin-bottom: 10px;"></i>
+        <h3>Faturamento Total</h3>
+        <h2 style="color: #15A0A5;">R$ {{ dados_origem.total_geral|floatformat:2 }}</h2>
+        <p>Soma Geral (App + PDV)</p>
     </div>
 </div>
 <div class="card" style="margin-top: 20px;">
@@ -122,6 +144,10 @@
         <h3>R$ {{ financeiro.vendas|floatformat:2 }}</h3>
     </div>
     <div class="card" style="border-left: 4px solid #03dac6;">
+        <small>Recebimentos Fiado</small>
+        <h3>R$ {{ financeiro.receitas_fiado|floatformat:2 }}</h3>
+    </div>
+    <div class="card" style="border-left: 4px solid #03dac6;">
         <small>Outras Receitas</small>
         <h3>R$ {{ financeiro.receitas_extras|floatformat:2 }}</h3>
     </div>
@@ -136,22 +162,38 @@
         </h2>
     </div>
 </div>
+
 <div class="card">
     <h3>Detalhamento de Entradas/Saídas Manuais</h3>
-    <table style="width: 100%; color: #eee;">
-        <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Valor</th></tr></thead>
+    <table style="width: 100%; color: #eee; border-collapse: collapse;">
+        <thead>
+            <tr style="border-bottom: 2px solid #444; text-align: left;">
+                <th style="padding: 10px;">Data</th>
+                <th>Descrição</th>
+                <th>Categoria</th>
+                <th>Forma de Pagto</th> 
+                <th style="text-align: right;">Valor</th>
+            </tr>
+        </thead>
         <tbody>
             {% for t in financeiro.lista_transacoes %}
-            <tr>
-                <td>{{ t.data|date:"d/m/Y" }}</td>
-                <td>{{ t.descricao }}</td>
+            <tr style="border-bottom: 1px solid #333;">
+                <td style="padding: 10px;">{{ t.data|date:"d/m/Y" }}</td>
+                <td>{{ t.descricao|default:"-" }}</td>
                 <td>{{ t.categoria.nome }}</td>
-                <td style="color: {% if t.categoria.tipo == 'RECEITA' %}#03dac6{% else %}#cf6679{% endif %};">
-                    R$ {{ t.valor }}
+                
+                <td>
+                    <span class="badge bg-dark border border-secondary" style="font-size: 0.85em; padding: 5px 8px;">
+                        {{ t.nome_forma_display|default:"Não Informado" }}
+                    </span>
+                </td>
+                
+                <td style="text-align: right; font-weight: bold; color: {% if t.categoria.tipo == 'RECEITA' %}#03dac6{% else %}#cf6679{% endif %};">
+                    R$ {{ t.valor|floatformat:2 }}
                 </td>
             </tr>
             {% empty %}
-            <tr><td colspan="4">Nenhuma movimentação manual no período.</td></tr>
+            <tr><td colspan="5" style="text-align: center; padding: 20px; color: #888;">Nenhuma movimentação manual no período.</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -282,6 +324,171 @@ function toggleMotoboy(id) {
     if (x.style.display === "none") { x.style.display = "block"; } else { x.style.display = "none"; }
 }
 </script>
+{% endif %}
+
+{% if tipo_relatorio == 'fiado' %}
+{% if not tem_fiado %}
+<div class="card" style="text-align: center; padding: 30px;">
+    <i class="fas fa-store-slash" style="font-size: 2em; color: #888; margin-bottom: 10px;"></i>
+    <p style="color: #aaa;">Nenhuma loja selecionada possui o fluxo de <strong>Vendas Fiado</strong> habilitado.</p>
+    <small style="color: #666;">Ative em Admin → Lojas → "Habilitar Vendas Fiado?"</small>
+</div>
+{% else %}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px;">
+    <div class="card" style="border-top: 4px solid #ff9800; text-align: center;">
+        <small>Vendas Fiado Abertas</small>
+        <h3>{{ fiado.qtd_vendas }}</h3>
+    </div>
+    <div class="card" style="border-top: 4px solid #ff9800; text-align: center;">
+        <small>Total Vendido (Fiado)</small>
+        <h3 style="color: #ff9800;">R$ {{ fiado.total_vendido|floatformat:2 }}</h3>
+    </div>
+    <div class="card" style="border-top: 4px solid #03dac6; text-align: center;">
+        <small>Total Recebido</small>
+        <h3 style="color: #03dac6;">R$ {{ fiado.total_pago|floatformat:2 }}</h3>
+    </div>
+    <div class="card" style="border-top: 4px solid #cf6679; text-align: center;">
+        <small>Saldo Devedor Total</small>
+        <h3 style="color: #cf6679;">R$ {{ fiado.total_devedor|floatformat:2 }}</h3>
+    </div>
+</div>
+
+<div class="card">
+    <h3><i class="fas fa-file-invoice-dollar"></i> Vendas Fiado — Pagamento Pendente</h3>
+    <table style="width: 100%; color: #eee; border-collapse: collapse; margin-top: 15px;">
+        <thead>
+            <tr style="border-bottom: 2px solid #444; text-align: left;">
+                <th style="padding: 10px;">Data</th>
+                <th>Cliente</th>
+                <th>Qtd Total</th>
+                <th>Itens</th>
+                <th>Valor Total</th>
+                <th>Pago</th>
+                <th>Saldo</th>
+                <th>Lançar Pagamento</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in fiado.lista %}
+            <tr style="border-bottom: 1px solid #333;">
+                <td style="padding: 10px;">{{ item.data }}</td>
+                <td><strong>{{ item.cliente }}</strong></td>
+                <td style="text-align: center;">{{ item.qtd_total }}</td>
+                <td style="font-size: 0.85em; color: #aaa; max-width: 220px;">{{ item.itens_resumo }}</td>
+                <td>R$ {{ item.total|floatformat:2 }}</td>
+                <td style="color: #03dac6;">R$ {{ item.pago|floatformat:2 }}</td>
+                <td style="color: #cf6679; font-weight: bold;">R$ {{ item.saldo|floatformat:2 }}</td>
+                <td>
+                    <form method="POST" action="{% url 'registrar_pagamento_fiado' item.venda.id %}?tipo_relatorio=fiado&data_inicio={{ data_inicio }}&data_fim={{ data_fim }}&loja_id={{ loja_selecionada_id }}"
+                          style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
+                        {% csrf_token %}
+                        <input type="hidden" name="tipo_relatorio" value="fiado">
+                        <input type="hidden" name="data_inicio" value="{{ data_inicio }}">
+                        <input type="hidden" name="data_fim" value="{{ data_fim }}">
+                        <input type="hidden" name="loja_id" value="{{ loja_selecionada_id }}">
+                        <input type="number" name="valor" step="0.01" min="0.01" max="{{ item.saldo }}" placeholder="R$" required
+                               class="form-control" style="width: 90px; padding: 4px;">
+                        <select name="meio_liquidacao" class="form-control" style="width: 100px; padding: 4px;">
+                            <option value="DINHEIRO">Dinheiro</option>
+                            <option value="PIX">Pix</option>
+                            <option value="CREDITO">Crédito</option>
+                            <option value="DEBITO">Débito</option>
+                        </select>
+                        <button type="submit" class="btn" style="background: #ff9800; color: #000; padding: 4px 8px; font-size: 0.85em;">
+                            <i class="fas fa-check"></i> Receber
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" style="text-align: center; padding: 25px; color: #888;">
+                    Nenhuma venda fiado pendente no período selecionado.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endif %}
+
+{% if tipo_relatorio == 'fiado_quitado' %}
+{% if not tem_fiado %}
+<div class="card" style="text-align: center; padding: 30px;">
+    <i class="fas fa-store-slash" style="font-size: 2em; color: #888; margin-bottom: 10px;"></i>
+    <p style="color: #aaa;">Nenhuma loja selecionada possui o fluxo de <strong>Vendas Fiado</strong> habilitado.</p>
+    <small style="color: #666;">Ative em Admin → Lojas → "Habilitar Vendas Fiado?"</small>
+</div>
+{% else %}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px;">
+    <div class="card" style="border-top: 4px solid #03dac6; text-align: center;">
+        <small>Vendas Quitadas</small>
+        <h3>{{ fiado_quitado.qtd_vendas }}</h3>
+    </div>
+    <div class="card" style="border-top: 4px solid #03dac6; text-align: center;">
+        <small>Total das Vendas</small>
+        <h3 style="color: #03dac6;">R$ {{ fiado_quitado.total_quitado|floatformat:2 }}</h3>
+    </div>
+    <div class="card" style="border-top: 4px solid #15a0a5; text-align: center;">
+        <small>Total Recebido (Período)</small>
+        <h3 style="color: #15a0a5;">R$ {{ fiado_quitado.total_recebido|floatformat:2 }}</h3>
+    </div>
+</div>
+
+<div class="card">
+    <h3><i class="fas fa-check-circle"></i> Vendas Fiado — Saldo Liquidado</h3>
+    <p style="color: #888; font-size: 0.9em; margin-top: 5px;">
+        Clientes que quitaram o saldo devedor no período (data da última parcela).
+    </p>
+    <table style="width: 100%; color: #eee; border-collapse: collapse; margin-top: 15px;">
+        <thead>
+            <tr style="border-bottom: 2px solid #444; text-align: left;">
+                <th style="padding: 10px;">Data Venda</th>
+                <th>Data Quitação</th>
+                <th>Cliente</th>
+                {% if mostrar_filtro_lojas %}<th>Loja</th>{% endif %}
+                <th>Qtd Total</th>
+                <th>Itens</th>
+                <th>Valor Total</th>
+                <th>Total Recebido</th>
+                <th>Meio Final</th>
+                <th>Histórico de Pagamentos</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in fiado_quitado.lista %}
+            <tr style="border-bottom: 1px solid #333;">
+                <td style="padding: 10px;">{{ item.data_venda }}</td>
+                <td style="color: #03dac6; font-weight: bold;">{{ item.data_quitacao }}</td>
+                <td><strong>{{ item.cliente }}</strong></td>
+                {% if mostrar_filtro_lojas %}<td style="font-size: 0.85em; color: #aaa;">{{ item.loja }}</td>{% endif %}
+                <td style="text-align: center;">{{ item.qtd_total }}</td>
+                <td style="font-size: 0.85em; color: #aaa; max-width: 200px;">{{ item.itens_resumo }}</td>
+                <td>R$ {{ item.total|floatformat:2 }}</td>
+                <td style="color: #03dac6; font-weight: bold;">R$ {{ item.pago|floatformat:2 }}</td>
+                <td>{{ item.meio_final }}</td>
+                <td style="font-size: 0.82em; color: #bbb; min-width: 180px;">
+                    {% for pag in item.pagamentos %}
+                    <div style="margin-bottom: 4px;">
+                        {{ pag.data }} — R$ {{ pag.valor|floatformat:2 }} ({{ pag.meio }})
+                    </div>
+                    {% empty %}
+                    —
+                    {% endfor %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="{% if mostrar_filtro_lojas %}10{% else %}9{% endif %}" style="text-align: center; padding: 25px; color: #888;">
+                    Nenhuma venda fiado quitada no período selecionado.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
 {% endif %}
 
 {% endblock %}

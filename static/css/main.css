@@ -90,6 +90,9 @@ body {
     padding: 30px;
     width: calc(100% - var(--sidebar-width));
     min-height: 100vh;
+    flex: 1;
+    min-width: 0;
+    max-width: 100%;
 }
 
 /* --- CARDS E CONTAINERS --- */
@@ -125,6 +128,11 @@ input, select, textarea {
     margin-bottom: 15px;
     outline: none;
     transition: border-color 0.3s;
+}
+
+select option {
+    background-color: #1e1e1e;
+    color: #fff;
 }
 
 input:focus, select:focus, textarea:focus {
@@ -182,12 +190,7 @@ tr:hover td {
     color: #fff;
 }
 
-/* --- AJUSTES PARA A TELA DE VENDAS --- */
-.pdv-container {
-    display: flex;
-    gap: 20px;
-    height: calc(100vh - 60px); 
-}
+/* --- AJUSTES PARA A TELA DE VENDAS (legado — ver bloco PDV 3 colunas abaixo) --- */
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 8px; }
@@ -195,52 +198,9 @@ tr:hover td {
 ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
 
 
-/* --- ESTILOS ESPECÍFICOS DA TELA DE VENDAS (PDV) --- */
+/* --- ESTILOS ESPECÍFICOS DA TELA DE VENDAS (legado removido — ver PDV 3 colunas) --- */
 
-/* Layout da Tela Dividida */
-.pdv-container { 
-    display: flex; 
-    gap: 20px; 
-    height: calc(100vh - 100px); /* Ajuste para caber na tela sem rolagem global */
-}
-
-.painel-esquerdo { 
-    flex: 1; 
-    display: flex; 
-    flex-direction: column; 
-    gap: 20px; 
-}
-
-/* O painel direito é um container flex */
-.painel-direito { 
-    flex: 1; 
-    display: flex; 
-    flex-direction: column; 
-    height: 100%;
-}
-
-/* Área de rolagem dos itens do cupom */
-.lista-produtos-venda { 
-    flex-grow: 1; 
-    overflow-y: auto; 
-    border: 1px solid #444; 
-    margin-bottom: 15px; 
-    border-radius: 4px;
-}
-
-.lista-produtos-venda table { width: 100%; border-collapse: collapse; }
-.lista-produtos-venda th { position: sticky; top: 0; background-color: #333; z-index: 1; }
-.lista-produtos-venda th, .lista-produtos-venda td { padding: 10px; text-align: left; border-bottom: 1px solid #444; }
-
-/* Display do Valor Total */
-.total-display { 
-    font-size: 2.5em; 
-    font-weight: bold; 
-    color: var(--accent); 
-    text-align: right; 
-    margin-top: auto; 
-    padding: 10px 0;
-}
+/* Display do Valor Total (global fallback) */
 
 /* Botão de remover item (X) */
 .btn-remover { 
@@ -267,6 +227,16 @@ tr:hover td {
     color: #03dac6 !important;
     font-weight: bold;
     font-size: 1.1em;
+}
+
+/* Quantidade/estoque: alinha e fixa largura dos números */
+.coluna-quantidade {
+    color: #03dac6 !important;
+    font-weight: bold;
+    font-size: 1.2em;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
 /* Classe para informações secundárias (Ex: Preço de Custo) */
@@ -361,130 +331,648 @@ tr:hover td {
 
 
 /* ==========================================================================
-   NOVOS ESTILOS DO PDV (TELA DE VENDAS) - BLINDADO
-   Cole isso no final do seu arquivo CSS
+   PDV — LAYOUT 50/50 CLÁSSICO + BARRA DE RODAPÉ + MODO COMPACTO
    ========================================================================== */
 
-/* Ajuste do Container Principal para travar a altura SÓ na venda */
-.pdv-container {
+.content:has(.pdv-page) {
+    padding: 10px 14px;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.content:has(.pdv-page) .header-top {
+    padding: 4px 0;
+    margin-bottom: 6px;
+}
+
+.pdv-page {
     display: flex;
-    gap: 20px;
-    height: calc(100vh - 80px); /* Ajuste fino para não gerar rolagem dupla */
-    align-items: stretch;
-    padding-bottom: 10px;
-    overflow: hidden; /* Impede que a tela de venda estoure */
+    flex-direction: column;
+    gap: 8px;
+    height: calc(100vh - 72px);
+    max-height: calc(100vh - 72px);
+    min-height: 0;
+    overflow: hidden;
 }
 
-/* Remove margens dos cards APENAS dentro do PDV para alinhamento perfeito */
-.pdv-container .card {
+.pdv-page .card {
     margin-bottom: 0 !important;
+    padding: 12px;
+    min-width: 0;
+    width: 100%;
 }
 
-/* --- LADO ESQUERDO (50%) --- */
+.pdv-compact label {
+    font-size: 0.78rem;
+    margin-bottom: 3px;
+    color: #aaa;
+}
+
+.pdv-compact input,
+.pdv-compact select {
+    padding: 6px 8px;
+    margin-bottom: 6px;
+    font-size: 0.88rem;
+}
+
+.pdv-compact h3 {
+    font-size: 0.92rem;
+    margin: 0 0 8px 0;
+    letter-spacing: 0.03em;
+}
+
+.pdv-field {
+    min-width: 0;
+}
+
+/* Container 50/50 — grid evita quebra em notebooks */
+.pdv-page .pdv-container {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 8px;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+    align-items: stretch;
+}
+
 .painel-esquerdo {
-    flex: 1 !important; /* Força 50% */
-    display: flex; 
-    flex-direction: column; 
-    gap: 20px;
+    grid-column: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.painel-esquerdo .card:first-child {
+    flex: 0 0 auto;
+}
+
+.card-produto {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+}
+
+.card-produto .btn-pdv-acao {
+    margin-top: auto;
+}
+
+.painel-direito {
+    grid-column: 2;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.card-cupom {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
     height: 100%;
 }
 
-/* Card de cima (Dados) ocupa só o necessário */
-.painel-esquerdo .card:first-child { 
-    flex: 0 0 auto; 
+.pdv-row-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
 }
 
-/* Card de baixo (Produto) ocupa todo o resto */
-.card-auto-height {
-    flex: 1; 
-    display: flex; 
-    flex-direction: column;
+.pdv-label-inline {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
 }
 
-/* --- LADO DIREITO (50%) --- */
-.painel-direito {
-    flex: 1 !important; /* Força 50% */
-    display: flex; 
-    flex-direction: column;
-    height: 100%; 
+.pdv-unidade-tag {
+    color: #107a7e;
+    font-weight: bold;
 }
 
-.card-full-height {
-    height: 100%; 
-    display: flex; 
-    flex-direction: column;
-    padding-bottom: 10px;
+.pdv-balanca-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 
-/* --- TABELA E CUPOM (Rolagem interna) --- */
-.cupom-body {
-    flex: 1; 
-    overflow-y: auto; /* Cria barra de rolagem aqui se encher */
+.btn-balanca-mini {
+    padding: 2px 6px !important;
+    font-size: 0.65rem !important;
+    background: #03dac6 !important;
+    color: #000 !important;
+    width: auto !important;
+    margin: 0 !important;
+}
+
+.pdv-balanca-status {
+    font-size: 0.6rem;
+    color: #888;
+}
+
+.pdv-input-destaque {
+    background-color: #1a4d4f !important;
+    border-color: #107a7e !important;
+}
+
+/* Cupom — rola internamente */
+.card-cupom .cupom-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
     border: 1px solid #333;
     border-radius: 4px;
     background: #222;
-    margin-bottom: 15px;
-    min-height: 150px; 
 }
 
-.cupom-table { 
-    width: 100%; 
-    border-collapse: collapse; 
-    table-layout: fixed; 
+.cupom-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
 }
-.cupom-table th { 
-    position: sticky; top: 0; 
-    background-color: #333; z-index: 2;
-    padding: 8px; text-align: left; 
-    font-size: 0.85rem; color: #fff;
+
+.cupom-table th {
+    position: sticky;
+    top: 0;
+    background-color: #333;
+    z-index: 2;
+    padding: 6px 8px;
+    text-align: left;
+    font-size: 0.78rem;
+    color: #fff;
 }
-.cupom-table td { 
-    padding: 8px; 
-    border-bottom: 1px solid #444; 
-    color: #ccc; font-size: 0.9rem; 
-    white-space: nowrap; 
-    overflow: hidden; 
+
+.cupom-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #444;
+    color: #ccc;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    overflow: hidden;
     text-overflow: ellipsis;
 }
 
-/* Larguras fixas para a tabela não quebrar */
-.cupom-table th:nth-child(1), .cupom-table td:nth-child(1) { width: 50%; } 
-.cupom-table th:nth-child(2), .cupom-table td:nth-child(2) { width: 15%; text-align: center; } 
-.cupom-table th:nth-child(3), .cupom-table td:nth-child(3) { width: 25%; text-align: right; } 
-.cupom-table th:nth-child(4), .cupom-table td:nth-child(4) { width: 10%; text-align: center; }
+.cupom-table th:nth-child(1), .cupom-table td:nth-child(1) { width: 48%; }
+.cupom-table th:nth-child(2), .cupom-table td:nth-child(2) { width: 22%; text-align: center; }
+.cupom-table th:nth-child(3), .cupom-table td:nth-child(3) { width: 22%; text-align: right; }
+.cupom-table th:nth-child(4), .cupom-table td:nth-child(4) { width: 8%; text-align: center; }
 
-/* Rodapé do Cupom */
-.cupom-footer {
-    padding-top: 10px;
-    border-top: 1px solid #444;
+/* Barra de pagamento fixa no rodapé */
+.pdv-footer-bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px !important;
+    border-top: 2px solid #15a0a5;
 }
 
-/* Exibição do Total */
+.pdv-footer-campos {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 8px 12px;
+    min-width: 0;
+}
+
+.pdv-footer-field {
+    flex: 0 1 auto;
+    min-width: 120px;
+    max-width: 170px;
+}
+
+.pdv-footer-taxa {
+    min-width: 100px;
+    max-width: 110px;
+}
+
+.pdv-footer-field label {
+    font-size: 0.72rem;
+    margin-bottom: 2px;
+    white-space: nowrap;
+}
+
+.pdv-footer-field input,
+.pdv-footer-field select {
+    margin-bottom: 0;
+}
+
+.pdv-footer-expand {
+    min-width: 95px;
+    max-width: 115px;
+}
+
+.pdv-footer-checks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    padding-bottom: 4px;
+}
+
+.pdv-footer-checks .check-container {
+    margin: 0;
+}
+
+.pdv-footer-checks .check-container label {
+    font-size: 0.74rem;
+    white-space: nowrap;
+}
+
+.pdv-footer-checkout {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.pdv-page .total-display {
+    font-size: clamp(1.5rem, 2.5vw, 2.2rem);
+    font-weight: 700;
+    color: #107a7e;
+    margin: 0;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.btn-finalizar-venda {
+    margin: 0 !important;
+    padding: 10px 18px !important;
+    font-size: 0.88rem !important;
+    white-space: nowrap;
+    width: auto !important;
+}
+
+/* Pagamento dividido — mini-tabela no rodapé PDV */
+.pdv-liquidacoes-wrap {
+    flex: 1 1 100%;
+    min-width: 280px;
+    max-width: 100%;
+    padding: 4px 0;
+}
+
+.pdv-liquidacoes-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.pdv-liquidacoes-restante {
+    font-size: 0.72rem;
+    color: #ccc;
+}
+
+.pdv-liquidacoes-restante strong {
+    color: #ff9800;
+}
+
+.pdv-liquidacoes-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 88px;
+    overflow-y: auto;
+}
+
+.pdv-liquidacao-linha {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.pdv-liquidacao-linha .liq-meio {
+    min-width: 88px;
+    max-width: 100px;
+    margin-bottom: 0 !important;
+    font-size: 0.78rem;
+    padding: 4px 6px;
+}
+
+.pdv-liquidacao-linha .liq-valor,
+.pdv-liquidacao-linha .liq-troco {
+    width: 72px;
+    margin-bottom: 0 !important;
+    font-size: 0.78rem;
+    padding: 4px 6px;
+}
+
+.pdv-liquidacao-linha .liq-troco-wrap {
+    display: flex;
+    align-items: center;
+}
+
+.btn-add-liquidacao,
+.btn-remover-liq {
+    border: 1px solid #15a0a5;
+    background: transparent;
+    color: #03dac6;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.72rem;
+    padding: 3px 8px;
+    line-height: 1.2;
+}
+
+.btn-remover-liq {
+    border-color: #cf6679;
+    color: #cf6679;
+    padding: 2px 7px;
+    font-size: 0.9rem;
+}
+
+.btn-pdv-acao {
+    width: 100%;
+    margin-top: 8px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+}
+
+.pdv-page .btn-remove {
+    width: auto !important;
+    display: inline-block !important;
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    color: #cf6679;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.check-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.check-container input {
+    width: auto !important;
+    margin: 0 !important;
+    flex-shrink: 0;
+}
+
+/* Histórico de vendas — card de filtros */
+.vendas-filtros-card {
+    margin-bottom: 20px;
+    padding: 16px 18px !important;
+    border-top: 3px solid #15a0a5;
+}
+
+.vendas-filtros-titulo {
+    margin: 0 0 6px;
+    font-size: 1.05rem;
+    color: #03dac6;
+}
+
+.vendas-filtros-desc {
+    margin: 0 0 14px;
+    font-size: 0.82rem;
+    color: #aaa;
+}
+
+.vendas-filtros-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.vendas-filtros-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px 14px;
+}
+
+.vendas-filtro-field label {
+    display: block;
+    font-size: 0.78rem;
+    margin-bottom: 4px;
+    color: #ccc;
+}
+
+.vendas-filtro-field input,
+.vendas-filtro-field select {
+    width: 100%;
+    margin-bottom: 0;
+    font-size: 0.88rem;
+    background-color: #1e1e1e;
+    color: #fff;
+    border: 1px solid #555;
+}
+
+.vendas-filtro-field select option {
+    background-color: #1e1e1e;
+    color: #fff;
+}
+
+.vendas-filtro-field-wide {
+    grid-column: span 2;
+}
+
+@media (max-width: 640px) {
+    .vendas-filtro-field-wide {
+        grid-column: span 1;
+    }
+}
+
+.vendas-filtros-acoes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    padding-top: 4px;
+}
+
+.vendas-btn-filtrar {
+    background-color: #15a0a5 !important;
+    color: #fff !important;
+    border: none;
+    padding: 8px 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.vendas-btn-limpar {
+    background-color: #333 !important;
+    color: #ddd !important;
+    border: 1px solid #555;
+    padding: 8px 14px;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 0.88rem;
+}
+
+.vendas-filtros-contagem {
+    margin-left: auto;
+    font-size: 0.82rem;
+    color: #888;
+}
+
+@media (max-width: 640px) {
+    .vendas-filtros-contagem {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+.check-container label {
+    margin: 0;
+    cursor: pointer;
+}
+
+@media (max-height: 800px) {
+    .pdv-page {
+        height: calc(100vh - 58px);
+        max-height: calc(100vh - 58px);
+    }
+
+    .pdv-page .card {
+        padding: 8px;
+    }
+
+    .pdv-compact input,
+    .pdv-compact select {
+        padding: 5px 7px;
+        margin-bottom: 4px;
+    }
+
+    .pdv-page .total-display {
+        font-size: clamp(1.2rem, 2vw, 1.6rem);
+    }
+
+    .btn-finalizar-venda {
+        padding: 8px 14px !important;
+        font-size: 0.82rem !important;
+    }
+}
+
+/* Notebooks e telas médias — mantém 2 colunas alinhadas */
+@media (max-width: 1400px) {
+    .content:has(.pdv-page) {
+        padding: 8px 10px;
+    }
+
+    .pdv-page .pdv-container {
+        gap: 6px;
+    }
+
+    .pdv-row-3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pdv-row-3 .pdv-field:first-child {
+        grid-column: 1 / -1;
+    }
+
+    .pdv-footer-field {
+        min-width: 95px;
+        max-width: 145px;
+    }
+
+    .pdv-footer-checks .check-container label {
+        font-size: 0.7rem;
+    }
+}
+
+@media (max-width: 1200px) {
+    .pdv-compact h3 {
+        font-size: 0.85rem;
+    }
+
+    .pdv-footer-bar {
+        gap: 8px;
+        padding: 8px 10px !important;
+    }
+
+    .pdv-footer-checkout {
+        gap: 8px;
+    }
+
+    .btn-finalizar-venda {
+        padding: 8px 12px !important;
+        font-size: 0.8rem !important;
+    }
+}
+
+/* Mobile estreito — só aqui empilha colunas */
+@media (max-width: 768px) {
+    .pdv-page {
+        height: auto;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .pdv-page .pdv-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(220px, 40vh);
+        overflow: visible;
+    }
+
+    .painel-esquerdo {
+        grid-column: 1;
+    }
+
+    .painel-direito {
+        grid-column: 1;
+    }
+
+    .pdv-row-3 {
+        grid-template-columns: 1fr;
+    }
+
+    .pdv-row-3 .pdv-field:first-child {
+        grid-column: auto;
+    }
+
+    .pdv-footer-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .pdv-footer-checkout {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
+
+/* Compatibilidade com classes antigas (outras telas) */
+.pdv-container .card { margin-bottom: 0 !important; }
+.row-flex { display: flex; gap: 10px; }
+.col-flex { flex: 1; min-width: 0; }
+
 .total-display {
-    text-align: right; 
-    font-size: 2rem; 
-    font-weight: bold; 
-    color: var(--accent, #15a0a5); 
+    text-align: right;
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--accent, #15a0a5);
     margin: 10px 0;
 }
 
-/* Helpers e Inputs do PDV */
-.row-flex { display: flex; gap: 15px; }
-.col-flex { flex: 1; }
-
-/* Checkbox container alinhado */
-.check-container { 
-    display: flex; align-items: center; gap: 10px; 
-    cursor: pointer; margin-top: 10px;
-}
-.check-container input { width: auto !important; margin: 0; }
-.check-container label { margin: 0; }
-
-/* Botão remover (X) */
-.btn-remove { 
-    background: none; border: none; 
-    color: #cf6679; cursor: pointer; 
-    padding: 0; width: auto; font-weight: bold; 
+.btn-remove {
+    background: none;
+    border: none;
+    color: #cf6679;
+    cursor: pointer;
+    padding: 0;
+    width: auto;
+    font-weight: bold;
 }
 
 /* --- CORREÇÃO DO DASHBOARD (Linha extra) --- */
@@ -493,20 +981,46 @@ tr:hover td {
 
 
 /* ==========================================================================
-   CORREÇÃO DOS BOTÕES DO PDV (LARGURA TOTAL)
+   TELA DE LOGIN - CÓDIGO LIMPO E DEFINITIVO
    ========================================================================== */
 
-/* Força os botões principais do PDV a ocuparem 100% da largura */
-.pdv-container button {
-    width: 100% !important;
-    display: block !important;
-    margin-top: 10px; /* Um pequeno espaço extra pra ficar bonito */
+/* 1. Imagem de fundo limpa na tag body */
+body.login-page {
+    background: url('../pc.png') no-repeat center center fixed !important;
+    background-size: cover !important;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden; 
 }
 
-/* IMPORTANTE: Impede que o botãozinho de remover (X) da tabela fique gigante */
-.pdv-container .btn-remove {
-    width: auto !important;     /* Volta ao tamanho automático */
-    display: inline-block !important;
-    margin-top: 0;
-    padding: 0;
+/* 2. Centraliza tudo e força transparência total no container principal */
+body.login-page .content {
+    margin-left: 0 !important;
+    width: 100% !important;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* 3. MATA A TARJA FANTASMA: Torna qualquer div que envolva o card 100% transparente */
+body.login-page .content > div {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+/* 4. Transforma o card de login em um "Vidro" para destacar a imagem no fundo */
+body.login-page .card {
+    background: rgba(20, 20, 20, 0.6) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6) !important;
+    width: 100%;
+    min-width: 350px;
 }

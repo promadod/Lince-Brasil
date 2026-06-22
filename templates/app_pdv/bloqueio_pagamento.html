@@ -1,0 +1,150 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acesso Bloqueado | TrafficHub</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            /* Imagem de fundo opcional para simular o sistema desfocado ao fundo */
+            background-image: radial-gradient(#2a2a2a 1px, transparent 1px);
+            background-size: 20px 20px;
+            
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* O Efeito de Vidro (Glassmorphism) */
+        .modal-block {
+            background: rgba(30, 30, 30, 0.85);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            
+            width: 100%;
+            max-width: 450px;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            color: #fff;
+            position: relative;
+            animation: popup-scale 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popup-scale {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .icon-lock {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #ff4444, #b30000);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px auto;
+            font-size: 35px;
+            color: white;
+            box-shadow: 0 10px 20px rgba(255, 68, 68, 0.3);
+        }
+
+        h1 { margin: 10px 0; font-size: 24px; letter-spacing: 1px; }
+        p { color: #aaa; line-height: 1.6; font-size: 15px; margin-bottom: 30px; }
+
+        .btn-pay {
+            background: #00ffaa;
+            color: #000;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-weight: bold;
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            transition: 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 5px 15px rgba(0, 255, 170, 0.2);
+        }
+
+        .btn-pay:hover {
+            background: #00cc88;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 255, 170, 0.4);
+        }
+
+        .logout-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #666;
+            text-decoration: none;
+            font-size: 14px;
+            transition: 0.3s;
+        }
+        .logout-link:hover { color: #fff; }
+
+        /* Detalhes da Fatura */
+        .fatura-info {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            border: 1px dashed #555;
+        }
+        .fatura-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        .val-total { font-size: 20px; color: #00ffaa; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="modal-block">
+        <div class="icon-lock">
+            <i class="fas fa-lock"></i>
+        </div>
+
+        <h1>Sistema Bloqueado</h1>
+        <p>Olá, <strong>{{ loja.nome }}</strong>. Identificamos uma pendência na sua assinatura. Para continuar vendendo, regularize sua conta.</p>
+
+        <div class="fatura-info">
+            <div class="fatura-row">
+                <span>Vencimento:</span>
+                <span style="color: #ff4444;">{{ loja.data_vencimento|date:"d/m/Y" }}</span>
+            </div>
+            <div class="fatura-row">
+                <span>Valor:</span>
+                <span class="val-total">R$ {{ loja.valor_mensalidade }}</span>
+            </div>
+        </div>
+
+        {% if loja.link_pagamento_atual %}
+            <a href="{{ loja.link_pagamento_atual }}" target="_blank" class="btn-pay">
+                <i class="fas fa-qrcode"></i> Pagar com Pix
+            </a>
+        {% else %}
+            <a href="https://wa.me/5521SEUNUMERO?text=Ola,%20quero%20liberar%20meu%20sistema%20{{ loja.nome }}" class="btn-pay" style="background: #25D366; color: white;">
+                <i class="fab fa-whatsapp"></i> Solicitar Liberação
+            </a>
+        {% endif %}
+
+        <a href="{% url 'logout' %}" class="logout-link">Sair e tentar mais tarde</a>
+    </div>
+
+</body>
+</html>

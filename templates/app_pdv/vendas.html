@@ -7,107 +7,179 @@
 <input type="hidden" id="cliente_id_hidden">
 <input type="hidden" id="produto_id_hidden">
 <input type="hidden" id="venda_id_edicao" value="{{ venda_aberta.id|default:'' }}">
+<input type="hidden" id="produto_unidade_hidden">
+<input type="checkbox" id="checkEntrega" style="display:none !important;">
 
-<div class="pdv-container">
-    
-    <div class="painel-esquerdo">
-        
-        <div class="card">
-            <h3>Dados da Venda</h3>
-            <label>Cliente</label>
-            <input type="text" id="cliente_input" list="lista_clientes" placeholder="Busque o cliente..." onchange="buscarClienteID()" autocomplete="off">
-            <datalist id="lista_clientes">
-                <option value="Venda Direta" data-id="">Consumidor Final</option>
-                {% for cliente in clientes %}
-                <option value="{{ cliente.nome }}" data-id="{{ cliente.id }}"></option>
-                {% endfor %}
-            </datalist>
+<datalist id="lista_clientes">
+    <option value="Venda Direta" data-id="">Consumidor Final</option>
+    {% for cliente in clientes %}
+    <option value="{{ cliente.nome }}" data-id="{{ cliente.id }}"></option>
+    {% endfor %}
+</datalist>
+<datalist id="lista_produtos">
+    {% for produto in produtos %}
+    <option value="{{ produto.nome_venda }}"
+            data-id="{{ produto.id }}"
+            data-preco="{{ produto.preco_venda|stringformat:'.2f' }}"
+            data-unidade="{{ produto.item_estoque.unidade_medida|default:'UN' }}"
+            data-qtd-baixa="{{ produto.quantidade_baixa|stringformat:'.3f' }}"
+            data-vende-vazio="{% if produto.baixa_apenas_vasilhame_vazio %}1{% else %}0{% endif %}"
+            data-estoque-cheio="{{ produto.item_estoque.quantidade_estoque|stringformat:'.3f' }}"
+            data-estoque-vazio="{{ produto.item_estoque.quantidade_vazios|stringformat:'.3f' }}">
+        {% if estoque_diario %}
+        (Cheios: {{ produto.item_estoque.quantidade_estoque|floatformat:0 }} | Vazios: {{ produto.item_estoque.quantidade_vazios|floatformat:0 }})
+        {% elif produto.baixa_apenas_vasilhame_vazio %}(Vazios: {{ produto.item_estoque.quantidade_vazios }}){% else %}(Estoque: {{ produto.item_estoque.quantidade_estoque }}){% endif %}
+    </option>
+    {% endfor %}
+</datalist>
 
-            <label>Tipo</label>
-            <select id="tipo_venda">
-                <option value="FINALIZADO">Venda Direta</option>
-                <option value="ORCAMENTO">Orçamento</option>
-            </select>
-        </div>
+<div class="pdv-page pdv-compact">
 
-        <div class="card card-auto-height">
-            <h3>Adicionar Produto</h3>
-            <label>Produto</label>
-            <input type="text" id="produto_input" list="lista_produtos" placeholder="Nome ou código..." onchange="buscarProdutoDetalhes()" autocomplete="off">
-            <datalist id="lista_produtos">
-                {% for produto in produtos %}
-                <option value="{{ produto.nome_venda }}" data-id="{{ produto.id }}" data-preco="{{ produto.preco_venda }}">
-                    (Estoque: {{ produto.item_estoque.quantidade_estoque }})
-                </option>
-                {% endfor %}
-            </datalist>
+    <div class="pdv-container">
 
-            <div class="row-flex">
-                <div class="col-flex">
-                    <label>Quantidade</label>
-                    <input type="number" id="qtd_input" value="1" min="1">
-                </div>
-                <div class="col-flex">
-                    <label>Preço Unit. (R$)</label>
-                    <input type="number" id="preco_input" placeholder="0.00">
-                </div>
+        <div class="painel-esquerdo">
+
+            <div class="card">
+                <h3>Dados da Venda</h3>
+                <label for="cliente_input">Cliente</label>
+                <input type="text" id="cliente_input" list="lista_clientes" placeholder="Busque o cliente..." onchange="buscarClienteID()" autocomplete="off">
+
+                <label for="tipo_venda">Tipo</label>
+                <select id="tipo_venda">
+                    <option value="FINALIZADO">Venda Direta</option>
+                    <option value="ORCAMENTO">Orçamento</option>
+                </select>
             </div>
 
-            <div style="margin-top: auto;">
-                <button onclick="adicionarAoCarrinho()">ADICIONAR ITEM (Enter)</button>
+            <div class="card card-produto">
+                <h3>Adicionar Produto</h3>
+                <label for="produto_input">Produto</label>
+                <input type="text" id="produto_input" list="lista_produtos" placeholder="Nome ou código..." onchange="buscarProdutoDetalhes()" autocomplete="off">
+
+                <div class="pdv-row-3">
+                    <div class="pdv-field">
+                        <label class="pdv-label-inline">
+                            <span>Quantidade <span id="label_unidade" class="pdv-unidade-tag"></span></span>
+                            <span id="container-balanca" class="pdv-balanca-wrap" style="display: none;">
+                                <button type="button" id="btn-conectar-balanca" class="btn btn-balanca-mini">
+                                    <i class="fas fa-balance-scale"></i> Balança
+                                </button>
+                                <span id="status-balanca" class="pdv-balanca-status">Off</span>
+                            </span>
+                        </label>
+                        <input type="number" id="qtd_input" value="1" min="0.001" step="0.001">
+                    </div>
+                    <div class="pdv-field">
+                        <label for="preco_input">Preço Unit. (R$)</label>
+                        <input type="number" id="preco_input" placeholder="0.00">
+                    </div>
+                    <div class="pdv-field">
+                        <label for="total_item_input">Total do Item (R$)</label>
+                        <input type="number" id="total_item_input" placeholder="0.00" step="0.01" class="pdv-input-destaque">
+                    </div>
+                </div>
+
+                <button type="button" class="btn-pdv-acao" onclick="adicionarAoCarrinho()">ADICIONAR ITEM (Enter)</button>
+            </div>
+
+        </div>
+
+        <div class="painel-direito">
+            <div class="card card-cupom">
+                <h3>CUPOM FISCAL</h3>
+                <div class="cupom-body">
+                    <table class="cupom-table">
+                        <thead>
+                            <tr>
+                                <th>Produto</th>
+                                <th>Qtd</th>
+                                <th>Total</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-itens"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
+
     </div>
 
-    <div class="painel-direito">
-        <div class="card card-full-height">
-            <h3>CUPOM FISCAL</h3>
-            
-            <div class="cupom-body">
-                <table class="cupom-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 50%;">Produto</th>
-                            <th style="text-align: center;">Qtd</th>
-                            <th style="text-align: right;">Total</th>
-                            <th style="width: 30px;"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="lista-itens">
-                        </tbody>
-                </table>
-            </div>
-
-            <div class="cupom-footer">
-                
-                <input type="checkbox" id="checkEntrega" style="display:none !important;">
-
-                <label>Taxa de Entrega (R$)</label>
+    <div class="pdv-footer-bar card">
+        <div class="pdv-footer-campos">
+            <div class="pdv-footer-field pdv-footer-taxa">
+                <label for="inputTaxa">Taxa Entrega (R$)</label>
                 <input type="number" id="inputTaxa" value="0.00" disabled>
-
-                <label>Forma de Pagamento</label>
-                <select id="selectPagamento">
-                    <option value="DINHEIRO">Dinheiro</option>
-                    <option value="PIX" selected>Pix</option>
-                    <option value="CREDITO">Cartão de Crédito</option>
-                    <option value="DEBITO">Cartão de Débito</option>
-                </select>
-
-                <div id="div_troco" style="display: none; margin-top: 10px; background-color: #333; padding: 10px; border-radius: 5px; border: 1px dashed #15a0a5;">
-                    <label style="color: #15a0a5; font-weight: bold; font-size: 0.9em;">
-                        <i class="fas fa-money-bill-wave"></i> Levar troco para quanto?
-                    </label>
-                    <input type="number" step="0.01" id="input_troco_para" class="form-control" placeholder="Ex: 50.00 ou 100.00" style="margin-top: 5px;">
-                </div>
-                <div class="check-container" style="margin-top: 10px;">
-                    <input type="checkbox" id="check_finalizar_depois">
-                    <label for="check_finalizar_depois">Finalizar Venda Depois (Deixar em Aberto)</label>
-                </div>
-
-                <div class="total-display" id="valorTotalDisplay">R$ 0.00</div>
-
-                <button onclick="finalizarVenda()">FINALIZAR VENDA (F2)</button>
             </div>
+            <div class="pdv-footer-field">
+                <label for="selectPagamento">Tipo Lançamento</label>
+                <select id="selectPagamento">
+                    {% for forma in formas_pagamento %}
+                    <option value="{{ forma.codigo }}" {% if venda_aberta and venda_aberta.forma_pagamento == forma.codigo %}selected{% elif not venda_aberta and forma.codigo == 'PIX' %}selected{% endif %}>
+                        {{ forma.nome }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div id="bloco_meio_unico" class="pdv-footer-field">
+                <label for="selectMeioLiquidacao">Meio Liquidação</label>
+                <select id="selectMeioLiquidacao">
+                    <option value="DINHEIRO" {% if venda_aberta and venda_aberta.meio_liquidacao == 'DINHEIRO' %}selected{% endif %}>Dinheiro</option>
+                    <option value="PIX" {% if venda_aberta and venda_aberta.meio_liquidacao == 'PIX' %}selected{% elif not venda_aberta %}selected{% endif %}>Pix</option>
+                    <option value="CREDITO" {% if venda_aberta and venda_aberta.meio_liquidacao == 'CREDITO' %}selected{% endif %}>Crédito</option>
+                    <option value="DEBITO" {% if venda_aberta and venda_aberta.meio_liquidacao == 'DEBITO' %}selected{% endif %}>Débito</option>
+                </select>
+            </div>
+
+            {% if permite_pagamento_dividido %}
+            <div id="bloco_pagamento_dividido" class="pdv-liquidacoes-wrap" style="display: none;">
+                <div class="pdv-liquidacoes-top">
+                    <span class="pdv-liquidacoes-restante">Restante: <strong id="liquidacao_restante">R$ 0,00</strong></span>
+                    <button type="button" id="btn_add_liquidacao" class="btn-add-liquidacao">+ Forma</button>
+                </div>
+                <div id="lista_liquidacoes" class="pdv-liquidacoes-lista"></div>
+            </div>
+            {% endif %}
+
+            <div id="div_troco" class="pdv-footer-field pdv-footer-expand" style="display: none;">
+                <label for="input_troco_para"><i class="fas fa-money-bill-wave"></i> Troco para</label>
+                <input type="number" step="0.01" id="input_troco_para" placeholder="50.00">
+            </div>
+
+            {% if usa_fiado %}
+            <div id="campos_fiado" class="pdv-footer-field pdv-footer-expand" style="display: none;">
+                <label for="input_valor_pago_fiado">Entrada (R$)</label>
+                <input type="number" step="0.01" min="0" id="input_valor_pago_fiado" value="0.00">
+            </div>
+            {% endif %}
+
+            <div class="pdv-footer-checks">
+                <div class="check-container">
+                    <input type="checkbox" id="check_finalizar_depois">
+                    <label for="check_finalizar_depois">Finalizar depois (aberto)</label>
+                </div>
+                {% if usa_fiado %}
+                <div class="check-container">
+                    <input type="checkbox" id="check_venda_fiado">
+                    <label for="check_venda_fiado">Venda consignada</label>
+                </div>
+                {% endif %}
+                {% if permite_pagamento_dividido %}
+                <div class="check-container">
+                    <input type="checkbox" id="check_pagamento_dividido">
+                    <label for="check_pagamento_dividido">Pagamento dividido</label>
+                </div>
+                {% endif %}
+                <div class="check-container">
+                    <input type="checkbox" id="check_att_padrao">
+                    <label for="check_att_padrao">Salvar taxa padrão</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="pdv-footer-checkout">
+            <div class="total-display" id="valorTotalDisplay">R$ 0.00</div>
+            <button type="button" class="btn-finalizar-venda btn-pdv-acao" onclick="finalizarVenda()">FINALIZAR VENDA (F2)</button>
         </div>
     </div>
 
@@ -116,15 +188,198 @@
 <script>
     let carrinho = [];
     const itensPreCarregados = {{ itens_json|safe|default:"[]" }};
+    const liquidacoesPreCarregadas = {{ liquidacoes_json|default:"[]"|safe }};
+    const PERMITE_PAGAMENTO_DIVIDIDO = {{ permite_pagamento_dividido|yesno:"true,false" }};
+    const MEIOS_LIQUIDACAO = [
+        { codigo: 'DINHEIRO', nome: 'Dinheiro' },
+        { codigo: 'PIX', nome: 'Pix' },
+        { codigo: 'CREDITO', nome: 'Crédito' },
+        { codigo: 'DEBITO', nome: 'Débito' },
+    ];
     
+    // PEGA O VALOR PADRÃO VINDO DO BANCO DE DADOS
+    const TAXA_PADRAO_LOJA = parsePrecoBR("{{ taxa_padrao|default_if_none:0|stringformat:'.2f' }}");
+    let taxaEntregaManual = false;
+    let ultimoClienteInput = '';
+
+    function obterTaxaEntrega() {
+        const inputTaxa = document.getElementById('inputTaxa');
+        if (!inputTaxa || inputTaxa.disabled) return 0;
+        const v = parsePrecoBR(inputTaxa.value);
+        return isFinite(v) && v > 0 ? v : 0;
+    }
+
+    /** Converte preço pt-BR (93,16) ou en-US (93.16) para número. */
+    function parsePrecoBR(val) {
+        if (val == null || val === '') return 0;
+        return parseFloat(String(val).trim().replace(',', '.')) || 0;
+    }
+
     // --- LÓGICA DO TROCO ---
     const selectPagamento = document.getElementById('selectPagamento'); 
+    const selectMeioLiquidacao = document.getElementById('selectMeioLiquidacao');
     const divTroco = document.getElementById('div_troco');
     const inputTroco = document.getElementById('input_troco_para');
 
+    function meioLiquidacaoEhDinheiro() {
+        if (pagamentoDivididoAtivo()) return false;
+        return selectMeioLiquidacao && selectMeioLiquidacao.value === 'DINHEIRO';
+    }
+
+    const checkPagamentoDividido = document.getElementById('check_pagamento_dividido');
+    const blocoMeioUnico = document.getElementById('bloco_meio_unico');
+    const blocoPagamentoDividido = document.getElementById('bloco_pagamento_dividido');
+    const listaLiquidacoes = document.getElementById('lista_liquidacoes');
+    const btnAddLiquidacao = document.getElementById('btn_add_liquidacao');
+    const spanRestante = document.getElementById('liquidacao_restante');
+
+    function pagamentoDivididoAtivo() {
+        return checkPagamentoDividido && checkPagamentoDividido.checked;
+    }
+
+    function obterTotalVenda() {
+        const displayTotal = document.getElementById('valorTotalDisplay');
+        if (!displayTotal) return 0;
+        return parsePrecoBR(displayTotal.innerText.replace('R$', '').trim());
+    }
+
+    function meiosDisponiveisLinha(selectAtual) {
+        const usados = new Set();
+        document.querySelectorAll('#lista_liquidacoes .liq-meio').forEach(sel => {
+            if (sel !== selectAtual && sel.value) usados.add(sel.value);
+        });
+        return MEIOS_LIQUIDACAO.filter(m => !usados.has(m.codigo) || (selectAtual && m.codigo === selectAtual.value));
+    }
+
+    function atualizarOpcoesMeios() {
+        document.querySelectorAll('#lista_liquidacoes .liq-meio').forEach(sel => {
+            const valorAtual = sel.value;
+            const opcoes = meiosDisponiveisLinha(sel);
+            sel.innerHTML = opcoes.map(m => `<option value="${m.codigo}">${m.nome}</option>`).join('');
+            if (opcoes.some(m => m.codigo === valorAtual)) sel.value = valorAtual;
+            else if (opcoes.length) sel.value = opcoes[0].codigo;
+            toggleTrocoLinha(sel.closest('.pdv-liquidacao-linha'));
+        });
+    }
+
+    function toggleTrocoLinha(linha) {
+        if (!linha) return;
+        const meio = linha.querySelector('.liq-meio').value;
+        const trocoWrap = linha.querySelector('.liq-troco-wrap');
+        if (trocoWrap) trocoWrap.style.display = meio === 'DINHEIRO' ? 'block' : 'none';
+    }
+
+    function calcularRestanteLiquidacao() {
+        let soma = 0;
+        document.querySelectorAll('#lista_liquidacoes .liq-valor').forEach(inp => {
+            soma += parseFloat(inp.value.replace(',', '.')) || 0;
+        });
+        const restante = obterTotalVenda() - soma;
+        if (spanRestante) {
+            spanRestante.textContent = 'R$ ' + restante.toFixed(2);
+            spanRestante.style.color = Math.abs(restante) <= 0.01 ? '#66bb6a' : '#ff9800';
+        }
+        return restante;
+    }
+
+    function adicionarLinhaLiquidacao(meio, valor, troco) {
+        if (!listaLiquidacoes) return;
+        const idx = listaLiquidacoes.children.length;
+        const linha = document.createElement('div');
+        linha.className = 'pdv-liquidacao-linha';
+        linha.innerHTML = `
+            <select class="liq-meio"></select>
+            <input type="number" class="liq-valor" step="0.01" min="0.01" placeholder="Valor" value="${valor != null && !isNaN(parsePrecoBR(valor)) ? parsePrecoBR(valor).toFixed(2) : ''}">
+            <div class="liq-troco-wrap" style="display:none;">
+                <input type="number" class="liq-troco" step="0.01" min="0" placeholder="Troco p/" value="${troco != null && !isNaN(parsePrecoBR(troco)) ? parsePrecoBR(troco).toFixed(2) : ''}">
+            </div>
+            <button type="button" class="btn-remover-liq" title="Remover">&times;</button>
+        `;
+        listaLiquidacoes.appendChild(linha);
+        const sel = linha.querySelector('.liq-meio');
+        sel.innerHTML = MEIOS_LIQUIDACAO.map(m => `<option value="${m.codigo}">${m.nome}</option>`).join('');
+        if (meio) sel.value = meio;
+        atualizarOpcoesMeios();
+        sel.addEventListener('change', () => { atualizarOpcoesMeios(); calcularRestanteLiquidacao(); });
+        linha.querySelector('.liq-valor').addEventListener('input', calcularRestanteLiquidacao);
+        linha.querySelector('.btn-remover-liq').addEventListener('click', () => {
+            if (listaLiquidacoes.children.length <= 2) {
+                alert('Pagamento dividido exige ao menos 2 formas.');
+                return;
+            }
+            linha.remove();
+            atualizarOpcoesMeios();
+            calcularRestanteLiquidacao();
+        });
+        toggleTrocoLinha(linha);
+        calcularRestanteLiquidacao();
+    }
+
+    function coletarLiquidacoes() {
+        const parcelas = [];
+        document.querySelectorAll('#lista_liquidacoes .pdv-liquidacao-linha').forEach(linha => {
+            const meio = linha.querySelector('.liq-meio').value;
+            const valor = parseFloat(linha.querySelector('.liq-valor').value.replace(',', '.')) || 0;
+            const trocoInp = linha.querySelector('.liq-troco');
+            const troco = trocoInp && linha.querySelector('.liq-troco-wrap').style.display !== 'none'
+                ? (parseFloat(trocoInp.value.replace(',', '.')) || 0) : 0;
+            parcelas.push({ meio_liquidacao: meio, valor: valor, troco_para: troco > 0 ? troco : null });
+        });
+        return parcelas;
+    }
+
+    function clienteExigeEntrega() {
+        const nome = document.getElementById('cliente_input').value.trim();
+        const nomeUpper = nome.toUpperCase();
+        return nome.length > 0 && nomeUpper !== 'VENDA DIRETA' && nomeUpper !== 'CONSUMIDOR FINAL';
+    }
+
+    function togglePagamentoDividido(skipLinhasPadrao) {
+        const ativo = pagamentoDivididoAtivo();
+        if (blocoMeioUnico) blocoMeioUnico.style.display = ativo ? 'none' : 'block';
+        if (blocoPagamentoDividido) blocoPagamentoDividido.style.display = ativo ? 'block' : 'none';
+        if (ativo) {
+            divTroco.style.display = 'none';
+            inputTroco.value = '';
+            if (checkVendaFiado && checkVendaFiado.checked) {
+                checkVendaFiado.checked = false;
+                toggleFiado();
+            }
+            // Pagamento dividido não cancela entrega: re-sincroniza com o cliente selecionado
+            verificarEntregaAutomatica({ skipTaxaAutoFill: true });
+            if (listaLiquidacoes && listaLiquidacoes.children.length === 0 && !skipLinhasPadrao) {
+                adicionarLinhaLiquidacao('DINHEIRO', '', null);
+                adicionarLinhaLiquidacao('PIX', '', null);
+            }
+            calcularRestanteLiquidacao();
+        } else {
+            verificarTroco();
+            if (listaLiquidacoes) listaLiquidacoes.innerHTML = '';
+        }
+    }
+
+    if (checkPagamentoDividido) {
+        checkPagamentoDividido.addEventListener('change', () => {
+            if (checkPagamentoDividido.checked && checkVendaFiado && checkVendaFiado.checked) {
+                alert('Pagamento dividido não pode ser usado com venda consignada.');
+                checkPagamentoDividido.checked = false;
+                return;
+            }
+            togglePagamentoDividido();
+        });
+    }
+    if (btnAddLiquidacao) {
+        btnAddLiquidacao.addEventListener('click', () => {
+            if (document.querySelectorAll('#lista_liquidacoes .pdv-liquidacao-linha').length >= MEIOS_LIQUIDACAO.length) {
+                alert('Todas as formas de liquidação já foram adicionadas.');
+                return;
+            }
+            adicionarLinhaLiquidacao('', '', null);
+        });
+    }
+
     function verificarTroco() {
-        let texto = selectPagamento.options[selectPagamento.selectedIndex].text.toLowerCase();
-        if (texto.includes('dinheiro')) {
+        if (meioLiquidacaoEhDinheiro()) {
             divTroco.style.display = 'block';
             inputTroco.required = true;
         } else {
@@ -133,11 +388,43 @@
             inputTroco.required = false;
         }
     }
-    selectPagamento.addEventListener('change', verificarTroco);
+    selectMeioLiquidacao.addEventListener('change', verificarTroco);
+
+    const checkVendaFiado = document.getElementById('check_venda_fiado');
+    const camposFiado = document.getElementById('campos_fiado');
+    const checkFinalizarDepois = document.getElementById('check_finalizar_depois');
+
+    function toggleFiado() {
+        if (!checkVendaFiado) return;
+        const ativo = checkVendaFiado.checked;
+        if (camposFiado) camposFiado.style.display = ativo ? 'block' : 'none';
+        if (ativo && checkFinalizarDepois) {
+            checkFinalizarDepois.checked = false;
+            checkFinalizarDepois.disabled = true;
+        } else if (checkFinalizarDepois) {
+            checkFinalizarDepois.disabled = false;
+        }
+        if (ativo) {
+            document.getElementById('checkEntrega').checked = false;
+            document.getElementById('inputTaxa').value = '0.00';
+            document.getElementById('inputTaxa').disabled = true;
+            if (checkPagamentoDividido) {
+                checkPagamentoDividido.checked = false;
+                checkPagamentoDividido.disabled = true;
+                togglePagamentoDividido();
+            }
+            calcularTotalGeral();
+        } else if (checkPagamentoDividido) {
+            checkPagamentoDividido.disabled = false;
+        }
+    }
+    if (checkVendaFiado) {
+        checkVendaFiado.addEventListener('change', toggleFiado);
+    }
     // -----------------------
     
     window.onload = function() {
-        verificarTroco(); // Roda ao iniciar
+        verificarTroco(); 
 
         if (itensPreCarregados.length > 0) {
             carrinho = itensPreCarregados;
@@ -152,8 +439,23 @@
                 let pgto = "{{ venda_aberta.forma_pagamento }}";
                 if(pgto) {
                     document.getElementById('selectPagamento').value = pgto;
-                    verificarTroco(); // Garante que mostre se vier do banco como Dinheiro
                 }
+                let meioLiq = "{{ venda_aberta.meio_liquidacao|default:'PIX' }}";
+                {% if venda_aberta.pagamento_dividido %}
+                if (checkPagamentoDividido && liquidacoesPreCarregadas.length >= 2) {
+                    checkPagamentoDividido.checked = true;
+                    togglePagamentoDividido(true);
+                    liquidacoesPreCarregadas.forEach(liq => {
+                        adicionarLinhaLiquidacao(liq.meio_liquidacao, liq.valor, liq.troco_para);
+                    });
+                    calcularRestanteLiquidacao();
+                }
+                {% else %}
+                if(meioLiq && meioLiq !== 'MISTO' && document.getElementById('selectMeioLiquidacao')) {
+                    document.getElementById('selectMeioLiquidacao').value = meioLiq;
+                    verificarTroco();
+                }
+                {% endif %}
                 calcularTotalGeral();
             {% endif %}
         }
@@ -165,24 +467,84 @@
         }
         const inputTaxa = document.getElementById('inputTaxa');
         if (inputTaxa) {
-            inputTaxa.addEventListener('input', calcularTotalGeral);
-            inputTaxa.addEventListener('change', calcularTotalGeral);
+            inputTaxa.addEventListener('input', function() {
+                taxaEntregaManual = true;
+                calcularTotalGeral();
+            });
+            inputTaxa.addEventListener('change', function() {
+                taxaEntregaManual = true;
+                calcularTotalGeral();
+            });
         }
+
+        // ==== LÓGICA CÁLCULO INVERSO NO ONLOAD ====
+        const inputQtd = document.getElementById('qtd_input');
+        const inputPreco = document.getElementById('preco_input');
+        const inputTotalItem = document.getElementById('total_item_input');
+
+        inputQtd.addEventListener('input', function() {
+            const preco = parseFloat(inputPreco.value.replace(',', '.')) || 0;
+            const qtd = parseFloat(this.value.replace(',', '.')) || 0;
+            if (preco > 0) { inputTotalItem.value = (qtd * preco).toFixed(2); }
+        });
+
+        inputPreco.addEventListener('input', function() {
+            const preco = parseFloat(this.value.replace(',', '.')) || 0;
+            const qtd = parseFloat(inputQtd.value.replace(',', '.')) || 0;
+            if (qtd > 0) { inputTotalItem.value = (qtd * preco).toFixed(2); }
+        });
+
+        inputTotalItem.addEventListener('input', function() {
+            const preco = parseFloat(inputPreco.value.replace(',', '.')) || 0;
+            const total = parseFloat(this.value.replace(',', '.')) || 0;
+            const unidade = document.getElementById('produto_unidade_hidden').value || 'UN';
+
+            if (preco > 0) {
+                let qtdCalculada = total / preco;
+                if (!isFinite(qtdCalculada) || qtdCalculada <= 0) return;
+                if (unidade === 'KG' || unidade === 'L') {
+                    inputQtd.value = qtdCalculada.toFixed(3);
+                } else {
+                    inputQtd.value = Math.floor(qtdCalculada);
+                }
+            }
+        });
+        // ==========================================
     };
 
-    function verificarEntregaAutomatica() {
+    function verificarEntregaAutomatica(opcoes) {
+        opcoes = opcoes || {};
+        const skipTaxaAutoFill = opcoes.skipTaxaAutoFill === true;
         const nome = document.getElementById('cliente_input').value.trim();
-        const nomeUpper = nome.toUpperCase();
         const checkEntrega = document.getElementById('checkEntrega');
         const inputTaxa = document.getElementById('inputTaxa');
 
-        if (nome.length > 0 && nomeUpper !== "VENDA DIRETA" && nomeUpper !== "CONSUMIDOR FINAL") {
+        if (nome !== ultimoClienteInput) {
+            if (!clienteExigeEntrega()) {
+                taxaEntregaManual = false;
+            }
+            ultimoClienteInput = nome;
+        }
+
+        if (clienteExigeEntrega()) {
             checkEntrega.checked = true;
             inputTaxa.disabled = false;
+
+            if (
+                !skipTaxaAutoFill &&
+                !taxaEntregaManual &&
+                obterTaxaEntrega() === 0 &&
+                TAXA_PADRAO_LOJA > 0
+            ) {
+                inputTaxa.value = TAXA_PADRAO_LOJA.toFixed(2);
+            }
+            calcularTotalGeral();
         } else {
             checkEntrega.checked = false;
-            inputTaxa.value = "0.00";
+            inputTaxa.value = '0.00';
             inputTaxa.disabled = true;
+            taxaEntregaManual = false;
+            ultimoClienteInput = nome;
             calcularTotalGeral();
         }
     }
@@ -199,52 +561,121 @@
             }
         }
         document.getElementById('cliente_id_hidden').value = hiddenId;
+        if (inputVal !== ultimoClienteInput) {
+            taxaEntregaManual = false;
+        }
         verificarEntregaAutomatica();
+    }
+
+    function obterOpcaoProdutoSelecionada() {
+        const inputVal = document.getElementById('produto_input').value;
+        const datalist = document.getElementById('lista_produtos');
+        for (let i = 0; i < datalist.options.length; i++) {
+            if (datalist.options[i].value === inputVal) {
+                return datalist.options[i];
+            }
+        }
+        return null;
     }
 
     function buscarProdutoDetalhes() {
         const inputVal = document.getElementById('produto_input').value;
-        const datalist = document.getElementById('lista_produtos');
-        const options = datalist.options;
         if(inputVal === "") { limparInputsProduto(); return; }
-        for (let i = 0; i < options.length; i++) {
-            if (options[i].value === inputVal) {
-                const id = options[i].getAttribute('data-id');
-                const preco = options[i].getAttribute('data-preco');
-                document.getElementById('produto_id_hidden').value = id;
-                document.getElementById('preco_input').value = parseFloat(preco).toFixed(2);
-                document.getElementById('qtd_input').select();
-                return;
+        
+        const option = obterOpcaoProdutoSelecionada();
+        if (option) {
+            const id = option.getAttribute('data-id');
+            const preco = option.getAttribute('data-preco');
+            const unidade = option.getAttribute('data-unidade'); 
+            
+            document.getElementById('produto_id_hidden').value = id;
+            const precoNum = parsePrecoBR(preco);
+            document.getElementById('preco_input').value = precoNum.toFixed(2);
+            document.getElementById('produto_unidade_hidden').value = unidade;
+            
+            document.getElementById('label_unidade').innerText = `(${unidade})`;
+
+            const containerBalanca = document.getElementById('container-balanca');
+            if (unidade === 'KG') {
+                containerBalanca.style.display = 'inline-flex';
+            } else {
+                containerBalanca.style.display = 'none';
             }
+            
+            const inputQtd = document.getElementById('qtd_input');
+            if(unidade === 'KG' || unidade === 'L') {
+                inputQtd.value = "1.000";
+            } else {
+                inputQtd.value = "1";
+            }
+            
+            document.getElementById('total_item_input').value = precoNum.toFixed(2);
+            
+            inputQtd.select();
+            return;
         }
         limparInputsProduto();
+        document.getElementById('label_unidade').innerText = "";
     }
 
     function limparInputsProduto() {
         document.getElementById('produto_id_hidden').value = "";
         document.getElementById('preco_input').value = "";
+        document.getElementById('total_item_input').value = ""; 
+        document.getElementById('container-balanca').style.display = 'none'; // Esconde a balança ao limpar
     }
 
     function adicionarAoCarrinho() {
         const id = document.getElementById('produto_id_hidden').value;
         const nome = document.getElementById('produto_input').value;
         const precoInput = document.getElementById('preco_input').value;
-        const qtd = parseInt(document.getElementById('qtd_input').value);
+        const unidade = document.getElementById('produto_unidade_hidden').value || 'UN';
+        
+        let qtdTexto = document.getElementById('qtd_input').value.toString().replace(',', '.');
+        const qtd = parseFloat(qtdTexto);
 
         if (!id || !nome) { alert("Selecione um produto válido!"); return; }
         if (!precoInput) { alert("Preço inválido!"); return; }
+        if (isNaN(qtd) || qtd <= 0) { alert("Quantidade inválida!"); return; }
 
-        const precoFinal = parseFloat(precoInput);
+        const option = obterOpcaoProdutoSelecionada();
+        if (option) {
+            const vendeVazio = option.getAttribute('data-vende-vazio') === '1';
+            const qtdBaixa = parseFloat(option.getAttribute('data-qtd-baixa') || '1');
+            const estoqueCheio = parseFloat(option.getAttribute('data-estoque-cheio') || '0');
+            const estoqueVazio = parseFloat(option.getAttribute('data-estoque-vazio') || '0');
+            const itemExistenteTmp = carrinho.find(item => item.id === id);
+            const qtdJaNoCarrinho = itemExistenteTmp ? itemExistenteTmp.quantidade : 0;
+            const consumoTotal = (qtdJaNoCarrinho + qtd) * qtdBaixa;
+
+            if (vendeVazio) {
+                if (consumoTotal > estoqueVazio) {
+                    alert(`Estoque insuficiente de vasilhame vazio. Disponível: ${estoqueVazio}`);
+                    return;
+                }
+            } else if (consumoTotal > estoqueCheio) {
+                alert(`Estoque insuficiente. Disponível: ${estoqueCheio}`);
+                return;
+            }
+        }
+
+        const precoFinal = parsePrecoBR(precoInput);
         const itemExistente = carrinho.find(item => item.id === id && item.preco === precoFinal);
         
-        if (itemExistente) { itemExistente.quantidade += qtd; } 
-        else { carrinho.push({ id, nome, preco: precoFinal, quantidade: qtd }); }
+        if (itemExistente) { 
+            itemExistente.quantidade += qtd; 
+        } else { 
+            carrinho.push({ id, nome, preco: precoFinal, quantidade: qtd, unidade: unidade }); 
+        }
 
         renderizarTabela();
         document.getElementById('qtd_input').value = 1;
         document.getElementById('produto_input').value = "";
         document.getElementById('produto_id_hidden').value = "";
         document.getElementById('preco_input').value = "";
+        document.getElementById('total_item_input').value = ""; 
+        document.getElementById('label_unidade').innerText = "";
+        document.getElementById('container-balanca').style.display = 'none'; // Esconde a balança após adicionar o item
         document.getElementById('produto_input').focus();
     }
 
@@ -260,13 +691,20 @@
         
         carrinho.forEach((item, index) => {
             const totalItem = item.preco * item.quantidade;
+            let qtdFormatada = "";
+            if (item.unidade === 'UN') {
+                qtdFormatada = parseInt(item.quantidade) + " UN";
+            } else {
+                qtdFormatada = parseFloat(item.quantidade).toFixed(3).replace('.', ',') + " " + item.unidade;
+            }
+            
             const tr = `
                 <tr>
                     <td>${item.nome}</td>
-                    <td style="text-align: center;">${item.quantidade}</td>
+                    <td style="text-align: center;">${qtdFormatada}</td>
                     <td style="text-align: right;">${totalItem.toFixed(2)}</td>
                     <td style="text-align: center;">
-                        <button class="btn-remove" onclick="removerItem(${index})">X</button>
+                        <button class="btn-remove" onclick="removerItem(${index})" style="color: red; cursor: pointer; border: none; background: none; font-weight: bold;">X</button>
                     </td>
                 </tr>
             `;
@@ -277,35 +715,90 @@
 
     function calcularTotalGeral() {
         let totalProdutos = 0;
-        carrinho.forEach(item => { totalProdutos += item.preco * item.quantidade; });
-        const taxa = parseFloat(document.getElementById('inputTaxa').value) || 0;
-        document.getElementById('valorTotalDisplay').innerText = 'R$ ' + (totalProdutos + taxa).toFixed(2);
+        carrinho.forEach(item => {
+            const p = parsePrecoBR(item.preco);
+            const q = parsePrecoBR(item.quantidade);
+            if (isFinite(p) && isFinite(q)) totalProdutos += p * q;
+        });
+        const taxa = obterTaxaEntrega();
+        const totalGeral = totalProdutos + taxa;
+        document.getElementById('valorTotalDisplay').innerText = 'R$ ' + totalGeral.toFixed(2);
+        if (pagamentoDivididoAtivo()) calcularRestanteLiquidacao();
     }
 
     function finalizarVenda() {
         if (carrinho.length === 0) { alert("Carrinho vazio!"); return; }
-        
-        const checkFinalizarDepois = document.getElementById('check_finalizar_depois');
-        const isEntrega = document.getElementById('checkEntrega').checked;
-        const displayTotal = document.getElementById('valorTotalDisplay');
 
-        // --- CORREÇÃO DO STATUS ---
-        // Se for Entrega, o status DEVE ser 'EM_PREPARACAO' para aparecer pro Motoboy.
-        // Se for Balcão (não entrega), aí sim pode ser 'FINALIZADO'.
+        const isFiado = checkVendaFiado && checkVendaFiado.checked;
+        const checkFinalizarDepoisEl = document.getElementById('check_finalizar_depois');
+        const displayTotal = document.getElementById('valorTotalDisplay');
+        const checkAttPadrao = document.getElementById('check_att_padrao');
+
+        let isEntrega = false;
+        if (isFiado) {
+            document.getElementById('checkEntrega').checked = false;
+            document.getElementById('inputTaxa').value = '0.00';
+            document.getElementById('inputTaxa').disabled = true;
+            calcularTotalGeral();
+        } else {
+            verificarEntregaAutomatica({ skipTaxaAutoFill: true });
+            isEntrega = clienteExigeEntrega() || document.getElementById('checkEntrega').checked;
+            document.getElementById('checkEntrega').checked = isEntrega;
+        }
+
+        if (isFiado) {
+            const clienteId = document.getElementById('cliente_id_hidden').value;
+            if (!clienteId) {
+                alert('Venda fiado exige cliente cadastrado (não pode ser Consumidor Final).');
+                return;
+            }
+        }
+
         let statusVenda = 'FINALIZADO';
         
-        if (isEntrega) {
-            statusVenda = 'EM_PREPARACAO'; // Mágica para aparecer no App do Motoboy
-        } else if (checkFinalizarDepois && checkFinalizarDepois.checked) {
-            statusVenda = 'ABERTO'; // Deixar em aberto no balcão
+        if (isFiado) {
+            statusVenda = 'FIADO';
+        } else if (checkFinalizarDepoisEl && checkFinalizarDepoisEl.checked) {
+            statusVenda = 'AGUARDANDO_FINALIZAR'; 
+        } else if (isEntrega) {
+            statusVenda = 'EM_PREPARACAO'; 
+        } else {
+            statusVenda = 'FINALIZADO';
         }
-        // --------------------------
 
-        // VALIDAÇÃO DO TROCO
         let valorTroco = 0;
-        // Agora verifica com MAIÚSCULO por causa da mudança no HTML
-        if (document.getElementById('selectPagamento').value === 'DINHEIRO') {
+        const isDividido = pagamentoDivididoAtivo();
+        if (!isFiado && !isDividido && meioLiquidacaoEhDinheiro()) {
              valorTroco = document.getElementById('input_troco_para').value;
+        }
+
+        if (isDividido) {
+            const parcelas = coletarLiquidacoes();
+            if (parcelas.length < 2) {
+                alert('Pagamento dividido exige ao menos 2 formas de liquidação.');
+                return;
+            }
+            const restante = calcularRestanteLiquidacao();
+            if (Math.abs(restante) > 0.01) {
+                alert('A soma das parcelas deve ser igual ao total da venda. Restante: R$ ' + restante.toFixed(2));
+                return;
+            }
+        }
+
+        let valorPagoFiado = 0;
+        if (isFiado) {
+            valorPagoFiado = parseFloat(document.getElementById('input_valor_pago_fiado').value.replace(',', '.')) || 0;
+            const totalVenda = displayTotal ? parseFloat(displayTotal.innerText.replace('R$ ', '')) : 0;
+            if (valorPagoFiado > totalVenda) {
+                alert('Valor pago agora não pode ser maior que o total da venda.');
+                return;
+            }
+        }
+
+        const totalVendaFinal = obterTotalVenda();
+        if (!isFinite(totalVendaFinal) || totalVendaFinal <= 0) {
+            alert('Total da venda inválido. Verifique os itens e a taxa de entrega.');
+            return;
         }
 
         const dadosVenda = {
@@ -313,42 +806,125 @@
             cliente_id: document.getElementById('cliente_id_hidden').value || null,
             status: statusVenda, 
             forma_pagamento: document.getElementById('selectPagamento').value,
-            taxa_entrega: document.getElementById('inputTaxa').value,
-            total_final: displayTotal ? parseFloat(displayTotal.innerText.replace('R$ ', '')) : 0,
-            
-            // Enviamos o troco aqui
+            meio_liquidacao: document.getElementById('selectMeioLiquidacao').value,
+            pagamento_dividido: isDividido,
+            taxa_entrega: isFiado ? 0 : obterTaxaEntrega(),
+            total_final: totalVendaFinal,
             troco_para: valorTroco,
-
+            eh_fiado: isFiado,
+            valor_pago_inicial: valorPagoFiado,
+            atualizar_padrao: checkAttPadrao ? checkAttPadrao.checked : false, 
             itens: carrinho,
             eh_entrega: isEntrega,
             endereco_entrega: ''
         };
+        if (isDividido) {
+            dadosVenda.liquidacoes = coletarLiquidacoes();
+        }
 
         fetch('{% url "salvar_venda" %}', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
             body: JSON.stringify(dadosVenda)
         })
-        .then(r => r.json())
+        .then(async r => {
+            const texto = await r.text();
+            let data;
+            try {
+                data = JSON.parse(texto);
+            } catch (e) {
+                throw new Error(r.status >= 500
+                    ? 'Erro interno no servidor ao salvar. Verifique se as migrations foram aplicadas (0037–0039).'
+                    : 'Resposta inválida do servidor.');
+            }
+            if (!r.ok && data.status !== 'sucesso') {
+                throw new Error(data.mensagem || 'Erro ao salvar venda.');
+            }
+            return data;
+        })
         .then(data => {
             if (data.status === 'sucesso') {
-                // Se for entrega ou aberto, volta pra lista. Se finalizou balcão, vai pro detalhe.
-                if (statusVenda === 'ABERTO' || statusVenda === 'EM_PREPARACAO') {
+                if (isFiado) {
+                    alert('Venda fiado registrada! Estoque baixado. Acompanhe pagamentos em Relatórios → Vendas Fiado.');
                     window.location.href = "{% url 'lista_vendas' %}";
-                } 
-                else {
+                } else if (statusVenda !== 'FINALIZADO') {
+                    window.location.href = "{% url 'lista_vendas' %}";
+                } else {
                     window.location.href = "/vendas/detalhes/" + data.venda_id + "/";
                 }
             } else { alert("Erro: " + data.mensagem); }
-        });
+        })
+        .catch(err => alert(err.message || 'Erro ao finalizar venda.'));
     }
 
     document.addEventListener('keydown', function(event) {
         if (event.key === "Enter") {
             const active = document.activeElement;
-            if (active.id === 'produto_input' || active.id === 'qtd_input' || active.id === 'preco_input') adicionarAoCarrinho();
+            if (active.id === 'produto_input' || active.id === 'qtd_input' || active.id === 'preco_input' || active.id === 'total_item_input') adicionarAoCarrinho();
         }
         if (event.key === "F2") { event.preventDefault(); finalizarVenda(); }
+    });
+
+    // =========================================================================
+    // INTEGRAÇÃO COM BALANÇA (WEB SERIAL API)
+    // =========================================================================
+    document.addEventListener('DOMContentLoaded', () => {
+        const btnConectar = document.getElementById('btn-conectar-balanca');
+        const statusBalanca = document.getElementById('status-balanca');
+        const campoQuantidade = document.getElementById('qtd_input');
+
+        let port;
+        let reader;
+
+        if (btnConectar) {
+            btnConectar.addEventListener('click', async () => {
+                try {
+                    port = await navigator.serial.requestPort();
+                    
+                    await port.open({ baudRate: 9600 });
+
+                    statusBalanca.textContent = "Lendo...";
+                    statusBalanca.className = "badge bg-success ms-1";
+                    btnConectar.style.display = "none"; 
+
+                    const textDecoder = new TextDecoderStream();
+                    const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+                    reader = textDecoder.readable.getReader();
+
+                    let buffer = "";
+
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) {
+                            reader.releaseLock();
+                            break;
+                        }
+                        
+                        buffer += value;
+
+                        if (buffer.includes('\r') || buffer.includes('\n') || buffer.includes('\x03')) {
+                            
+                            let pesoLimpo = buffer.replace(/[^0-9.,]/g, '');
+                            
+                            if (pesoLimpo) {
+                                pesoLimpo = pesoLimpo.replace(',', '.');
+                                let valorPeso = parseFloat(pesoLimpo);
+                                
+                                if (!isNaN(valorPeso) && valorPeso > 0) {
+                                    campoQuantidade.value = valorPeso.toFixed(3);
+                                    campoQuantidade.dispatchEvent(new Event('input'));
+                                }
+                            }
+                            buffer = ""; 
+                        }
+                    }
+                } catch (error) {
+                    console.error("Erro na balança:", error);
+                    statusBalanca.textContent = "Erro";
+                    statusBalanca.className = "badge bg-danger ms-1";
+                }
+            });
+        }
     });
 </script>
 

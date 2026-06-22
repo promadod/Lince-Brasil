@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Transferir Estoque{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px; margin: 0 auto; padding: 30px;">
+    <h3 style="color: #03dac6; margin-bottom: 20px;"><i class="fas fa-exchange-alt"></i> Transferência de Estoque</h3>
+    
+    <div style="background-color: #1a1a2e; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #aaa;">
+        <p style="margin: 0; color: #fff; font-size: 16px;"><strong>Produto:</strong> {{ item.nome }}</p>
+        <p style="margin: 5px 0 0 0; color: #aaa;">Estoque atual nesta loja: <strong style="color: #03dac6;">{{ item.estoque_formatado }}</strong></p>
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+        
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label style="color: #fff; display: block; margin-bottom: 8px;">Filial Destino:</label>
+            <select name="loja_destino" required style="width: 100%; padding: 10px; border-radius: 5px; background-color: #2a2a3e; color: #fff; border: 1px solid #444;">
+                <option value="">Selecione a loja para onde vai a mercadoria...</option>
+                {% for loja in lojas %}
+                    <option value="{{ loja.id }}">{{ loja.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 30px;">
+            <label style="color: #fff; display: block; margin-bottom: 8px;">Quantidade a transferir ({{ item.unidade_medida }}):</label>
+            <input type="number" name="quantidade" step="0.001" min="0.001" max="{{ item.quantidade_estoque|stringformat:"f" }}" required style="width: 100%; padding: 10px; border-radius: 5px; background-color: #2a2a3e; color: #fff; border: 1px solid #444;" placeholder="Ex: 5 ou 1.5">
+        </div>
+
+        <div style="display: flex; justify-content: space-between;">
+            <a href="{% url 'lista_estoque' %}" class="btn" style="background-color: #444; color: #fff;">Cancelar</a>
+            <button type="submit" class="btn" style="background-color: #03dac6; color: #000; font-weight: bold;"><i class="fas fa-paper-plane"></i> Confirmar Transferência</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

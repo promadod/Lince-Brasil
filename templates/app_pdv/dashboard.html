@@ -52,6 +52,25 @@
     }
 </style>
 
+{% if mostrar_filtro_lojas %}
+    <div class="d-flex justify-content-end mb-4">
+        <form method="GET" class="d-flex align-items-center gap-2 p-2 rounded" style="background-color: #1e1e1e; border: 1px solid #15A0A5;">
+            <label class="text-white mb-0 fw-bold" style="color: #15A0A5 !important; white-space: nowrap;">
+                <i class="fas fa-globe me-1"></i> Visão de Rede:
+            </label>
+            <select name="loja_id" class="form-select form-select-sm bg-dark text-white border-0 shadow-none" onchange="this.form.submit()" style="cursor: pointer; outline: none;">
+                <option value="todas" {% if loja_selecionada_id == 'todas' %}selected{% endif %}>🟢 Consolidadas (Todas as Lojas)</option>
+                
+                {% for loja in lojas_permitidas %}
+                    <option value="{{ loja.id }}" {% if loja_selecionada_id == loja.id|stringformat:"s" %}selected{% endif %}>
+                        🏠 {{ loja.nome }}
+                    </option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+    {% endif %}
+
 <div class="container-fluid mt-4">
     
     <div class="d-flex align-items-center mb-4">

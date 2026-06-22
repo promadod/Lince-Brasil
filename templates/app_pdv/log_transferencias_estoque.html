@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}Log de Transferências{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+    <h2 style="margin:0;">Log de Transferências</h2>
+    <a href="{% url 'lista_estoque' %}" class="btn" style="background-color: #444; color: #fff;">Voltar</a>
+</div>
+
+<div class="card" style="margin-bottom: 18px;">
+    <form method="GET" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+        <div style="min-width: 220px; flex: 1;">
+            <label>Buscar item</label>
+            <input type="text" name="q" value="{{ q }}" placeholder="Ex: Galão, Special Dog">
+        </div>
+
+        <div style="min-width: 170px;">
+            <label>Tipo</label>
+            <select name="tipo">
+                <option value="TODAS" {% if tipo == 'TODAS' %}selected{% endif %}>Todas</option>
+                <option value="ENVIADAS" {% if tipo == 'ENVIADAS' %}selected{% endif %}>Enviadas</option>
+                <option value="RECEBIDAS" {% if tipo == 'RECEBIDAS' %}selected{% endif %}>Recebidas</option>
+            </select>
+        </div>
+
+        <div style="min-width: 160px;">
+            <label>Data inicial</label>
+            <input type="date" name="data_ini" value="{{ data_ini }}">
+        </div>
+
+        <div style="min-width: 160px;">
+            <label>Data final</label>
+            <input type="date" name="data_fim" value="{{ data_fim }}">
+        </div>
+
+        <div style="display:flex; gap:10px;">
+            <button type="submit" class="btn">Filtrar</button>
+            <a class="btn" href="{% url 'log_transferencias_estoque' %}" style="background-color:#444; color:#fff;">Limpar</a>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <div style="overflow-x:auto;">
+        <table style="width:100%; color:#fff;">
+            <thead>
+                <tr style="text-align:left; border-bottom: 1px solid #444;">
+                    <th style="padding:10px;">Data</th>
+                    <th style="padding:10px;">Origem</th>
+                    <th style="padding:10px;">Destino</th>
+                    <th style="padding:10px;">Item</th>
+                    <th style="padding:10px;">Qtd</th>
+                    <th style="padding:10px;">Operador</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for l in logs %}
+                <tr style="border-bottom: 1px solid #333;">
+                    <td style="padding:10px; color:#bbb;">{{ l.data_transferencia|date:"d/m/Y H:i" }}</td>
+                    <td style="padding:10px;">{{ l.loja_origem.nome }}</td>
+                    <td style="padding:10px;">{{ l.loja_destino.nome }}</td>
+                    <td style="padding:10px; color:#fff; font-weight:bold;">{{ l.item_nome }}</td>
+                    <td style="padding:10px; font-weight:bold; color:#03dac6;">{{ l.quantidade }}</td>
+                    <td style="padding:10px; color:#bbb;">{% if l.usuario %}{{ l.usuario.username }}{% else %}—{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align:center; padding: 22px; color:#888;">
+                        Nenhuma transferência encontrada com os filtros atuais.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p style="margin-top: 12px; color:#888; font-size: 13px;">
+        Mostrando no máximo 500 registros (mais recentes).
+    </p>
+</div>
+{% endblock %}
+

@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block title %}Log Estoque Diário{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+    <h2 style="margin:0;">Log de Estoque Diário</h2>
+    <a href="{% url 'lista_estoque' %}" class="btn" style="background-color: #444; color: #fff;">Voltar ao estoque</a>
+</div>
+
+<div class="card" style="margin-bottom: 18px;">
+    <form method="GET" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+        <div style="min-width: 220px; flex: 1;">
+            <label>Buscar item</label>
+            <input type="text" name="q" value="{{ q }}" placeholder="Ex: Gás, Galão">
+        </div>
+
+        <div style="min-width: 170px;">
+            <label>Tipo</label>
+            <select name="tipo">
+                <option value="TODOS" {% if tipo == 'TODOS' %}selected{% endif %}>Todos</option>
+                <option value="ABERTURA" {% if tipo == 'ABERTURA' %}selected{% endif %}>Abertura</option>
+                <option value="FECHAMENTO" {% if tipo == 'FECHAMENTO' %}selected{% endif %}>Fechamento</option>
+            </select>
+        </div>
+
+        <div style="min-width: 160px;">
+            <label>Data inicial</label>
+            <input type="date" name="data_ini" value="{{ data_ini }}">
+        </div>
+
+        <div style="min-width: 160px;">
+            <label>Data final</label>
+            <input type="date" name="data_fim" value="{{ data_fim }}">
+        </div>
+
+        <div style="display:flex; gap:10px;">
+            <button type="submit" class="btn">Filtrar</button>
+            <a class="btn" href="{% url 'log_fechamento_estoque' %}" style="background-color:#444; color:#fff;">Limpar</a>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <div style="overflow-x:auto;">
+        <table style="width:100%; color:#fff;">
+            <thead>
+                <tr style="text-align:left; border-bottom: 1px solid #444;">
+                    <th style="padding:10px;">Registrado em</th>
+                    <th style="padding:10px;">Data ref.</th>
+                    <th style="padding:10px;">Tipo</th>
+                    <th style="padding:10px;">Item</th>
+                    <th style="padding:10px; text-align:center;">Cheios</th>
+                    <th style="padding:10px; text-align:center;">Vazios</th>
+                    <th style="padding:10px;">Operador</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for l in logs %}
+                <tr style="border-bottom: 1px solid #333;">
+                    <td style="padding:10px; color:#bbb;">{{ l.registrado_em|date:"d/m/Y H:i" }}</td>
+                    <td style="padding:10px;">{{ l.data_referencia|date:"d/m/Y" }}</td>
+                    <td style="padding:10px;">
+                        {% if l.tipo == 'ABERTURA' %}
+                            <span style="color:#03dac6;">Abertura</span>
+                        {% else %}
+                            <span style="color:#ffb86c;">Fechamento</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:10px; font-weight:bold;">{{ l.item_estoque.nome }}</td>
+                    <td style="padding:10px; text-align:center; color:#03dac6; font-weight:bold;">{{ l.quantidade_cheios }}</td>
+                    <td style="padding:10px; text-align:center; color:#ffb86c; font-weight:bold;">{{ l.quantidade_vazios }}</td>
+                    <td style="padding:10px; color:#bbb;">{% if l.usuario %}{{ l.usuario.username }}{% else %}—{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align:center; padding: 22px; color:#888;">
+                        Nenhum registro encontrado com os filtros atuais.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p style="margin-top: 12px; color:#888; font-size: 13px;">
+        Mostrando no máximo 500 registros (mais recentes).
+    </p>
+</div>
+{% endblock %}

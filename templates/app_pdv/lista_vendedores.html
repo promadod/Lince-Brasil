@@ -52,7 +52,7 @@
 
         <div>
             <a href="{% url 'cadastrar_vendedor' %}" class="btn btn-tema shadow">
-                <i class="fas fa-plus me-2"></i> Novo Usuáio
+                <i class="fas fa-plus me-2"></i> Novo Usuário
             </a>
         </div>
 
@@ -68,6 +68,7 @@
                             <th class="py-3">Usuário (Login)</th>
                             <th class="py-3">E-mail</th>
                             <th class="py-3 text-center">Status</th>
+                            <th class="py-3 text-end pe-4">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -83,6 +84,7 @@
                                 <span class="badge bg-dark border border-secondary">{{ v.username }}</span>
                             </td>
                             <td>{{ v.email|default:"-" }}</td>
+                            
                             <td class="text-center">
                                 {% if v.is_active %}
                                     <span class="badge bg-success bg-opacity-25 text-success border border-success" style="font-size: 0.8em;">ATIVO</span>
@@ -90,10 +92,20 @@
                                     <span class="badge bg-danger bg-opacity-25 text-danger border border-danger">INATIVO</span>
                                 {% endif %}
                             </td>
+                            
+                            <td class="text-end pe-4">
+                                <a href="{% url 'editar_vendedor' v.id %}" class="btn btn-sm" style="background-color: #2196F3; color: white;" title="Editar Dados e Senha">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                
+                                <a href="{% url 'gerenciar_permissoes' v.id %}" class="btn btn-sm btn-outline-warning ms-1" title="Configurar Permissões">
+                                    <i class="fas fa-user-lock"></i>
+                                </a>
+                            </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="text-center py-5 text-muted">
+                            <td colspan="5" class="text-center py-5 text-muted">
                                 <i class="fas fa-user-slash fa-2x mb-3 d-block"></i>
                                 Nenhum vendedor cadastrado além de você.
                             </td>

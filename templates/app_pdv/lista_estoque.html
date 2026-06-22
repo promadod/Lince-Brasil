@@ -2,42 +2,306 @@
 {% block title %}Controle de Estoque{% endblock %}
 
 {% block content %}
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-    <h2>Estoque  (Itens Físicos)</h2>
-    <a href="{% url 'adicionar_estoque' %}" class="btn" style="background-color: #03dac6; color: #000;">
-        <i class="fas fa-plus-circle"></i> Abastecer / Entrada
-    </a>
+<style>
+    .inp-contagem {
+        width: 72px;
+        max-width: 100%;
+        padding: 4px 6px;
+        text-align: center;
+        background: #1e1e1e;
+        border: 1px solid #555;
+        border-radius: 4px;
+        color: #fff;
+        font-weight: bold;
+    }
+    .inp-contagem-cheio { color: #03dac6; }
+    .inp-contagem-vazio { color: #ffb86c; }
+    .btn-salvar-linha {
+        padding: 4px 8px;
+        font-size: 11px;
+        background: #444;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .btn-salvar-linha:hover { background: #555; }
+    .estoque-diario-banner {
+        background: #1a2a32;
+        border: 1px solid #03dac6;
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        color: #ccc;
+        font-size: 0.95em;
+    }
+    .estoque-diario-banner strong { color: #03dac6; }
+</style>
+
+<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+    <h2 style="margin:0;">Estoque (Itens Físicos)</h2>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        {% if estoque_diario %}
+        <button type="button" id="btn_fechamento_dia" class="btn" style="background-color: #6a4a9a; color: #fff;" {% if fechamento_hoje %}disabled title="Fechamento já registrado hoje"{% endif %}>
+            <i class="fas fa-calendar-check"></i> Fechamento do dia
+        </button>
+        <a href="{% url 'log_fechamento_estoque' %}" class="btn" style="background-color: #375a7f; color: #fff;">
+            <i class="fas fa-history"></i> Log estoque diário
+        </a>
+        {% endif %}
+        <a href="{% url 'transferir_estoque_lote' %}" class="btn" style="background-color: #2a4a5a; color: #fff; border: 1px solid #03dac6;">
+            <i class="fas fa-people-carry"></i> Transferir em lote
+        </a>
+        <a href="{% url 'log_transferencias_estoque' %}" class="btn">
+            <i class="fas fa-clipboard-list"></i> Log de transferências
+        </a>
+        <a href="{% url 'adicionar_estoque' %}" class="btn" style="background-color: #03dac6; color: #000;">
+            <i class="fas fa-plus-circle"></i> Abastecer / Entrada
+        </a>
+    </div>
 </div>
 
+{% if estoque_diario %}
+<div class="estoque-diario-banner card">
+    <strong><i class="fas fa-clipboard-check"></i> Estoque diário ativo</strong> —
+    Informe cheios e vazios manualmente. As vendas continuam baixando automaticamente.
+    {% if fechamento_hoje %}
+    <span style="color:#9cdcfe;"> Fechamento de hoje já registrado.</span>
+    {% endif %}
+</div>
+{% endif %}
+
 <div class="card">
-    <table style="width:100%; color: #fff;">
+    <table class="table-estoque" style="width:100%; color: #fff; border-collapse: collapse; table-layout: fixed;">
         <thead>
             <tr style="text-align:left; border-bottom: 1px solid #444;">
-                <th style="padding:10px;">Nome do Item</th>
-                <th>Quantidade Total (Unidades)</th>
-                <th>Status</th>
+                <th style="padding:10px; width: {% if estoque_diario %}22{% elif controla_vasilhame_vazio %}24{% else %}30{% endif %}%;">Nome do Item</th>
+                <th style="width: 12%;">Validade</th>
+                <th style="width: {% if estoque_diario %}14{% elif controla_vasilhame_vazio %}12{% else %}16{% endif %}%; text-align: center;">
+                    {% if estoque_diario %}Cheios{% else %}Quantidade{% endif %}
+                </th>
+                {% if controla_vasilhame_vazio %}
+                <th style="width: {% if estoque_diario %}14{% else %}10{% endif %}%; text-align: center;">Vazios</th>
+                {% endif %}
+                <th style="width: 10%;">Status</th>
+                <th style="width: {% if estoque_diario %}28{% elif controla_vasilhame_vazio %}32{% else %}28{% endif %}%; text-align: center;">Ações</th>
             </tr>
         </thead>
         <tbody>
             {% for item in itens %}
-            <tr style="border-bottom: 1px solid #333;">
-                
-                <td style="padding:10px;">{{ item.nome }}</td>
-                
-                <td style="font-size: 1.2em; font-weight: bold;">{{ item.quantidade_estoque }}</td>
-                
-                <td>
+            <tr style="border-bottom: 1px solid #333;" data-item-id="{{ item.id }}">
+                <td style="padding:10px; vertical-align: middle;">
+                    {{ item.nome }}
+                </td>
+
+                <td style="font-weight: bold; color: #bbb; vertical-align: middle;">
+                    {% if item.data_validade %}
+                        {{ item.data_validade|date:"d/m/Y" }}
+                    {% else %}
+                        <span style="color: #666; font-weight: normal;">N/A</span>
+                    {% endif %}
+                </td>
+
+                <td style="vertical-align: middle; text-align: center; white-space: nowrap;">
+                    {% if estoque_diario %}
+                    <input type="number" class="inp-contagem inp-contagem-cheio inp-cheios" min="0" step="{% if item.unidade_medida == 'UN' %}1{% else %}0.001{% endif %}" value="{{ item.quantidade_estoque|stringformat:'.3f' }}">
+                    {% else %}
+                    <span class="txt-cheios" style="color: #03dac6; font-weight: bold; font-size: 1.1em;">{{ item.estoque_formatado_curto }}</span>
+                    {% endif %}
+                </td>
+
+                {% if controla_vasilhame_vazio %}
+                <td style="vertical-align: middle; text-align: center; white-space: nowrap;">
+                    {% if estoque_diario %}
+                    <input type="number" class="inp-contagem inp-contagem-vazio inp-vazios" min="0" step="{% if item.unidade_medida == 'UN' %}1{% else %}0.001{% endif %}" value="{{ item.quantidade_vazios|stringformat:'.3f' }}">
+                    {% else %}
+                    <span class="txt-vazios" style="color: #ffb86c; font-weight: bold; font-size: 1.05em;">{{ item.vazios_formatado_curto }}</span>
+                    {% endif %}
+                </td>
+                {% endif %}
+
+                <td style="vertical-align: middle;">
                     {% if item.quantidade_estoque <= 10 %}
                         <span style="color: #cf6679; font-weight: bold;">Baixo</span>
                     {% else %}
                         <span style="color: #03dac6;">Normal</span>
                     {% endif %}
                 </td>
+
+                <td style="padding: 10px; vertical-align: middle;">
+                    <div style="display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        {% if estoque_diario %}
+                        <button type="button" class="btn-salvar-linha btn-salvar-item" title="Salvar contagem">
+                            <i class="fas fa-save"></i> Salvar
+                        </button>
+                        {% endif %}
+
+                        <div style="width: 70px;">
+                            {% if item.observacao %}
+                                <button onclick="mostrarObs('{{ item.nome|escapejs }}', '{{ item.observacao|escapejs }}')" class="btn" style="background-color: #ffb86c; color: #000; padding: 5px 0; font-size: 11px; font-weight:bold; border:none; cursor:pointer; width: 100%;">
+                                    <i class="fas fa-file-alt"></i> Obs
+                                </button>
+                            {% endif %}
+                        </div>
+
+                        <div style="width: 100px;">
+                            <a href="{% url 'transferir_estoque' item.id %}" class="btn" style="background-color: #03dac6; color: #000; padding: 5px 0; font-size: 11px; text-decoration: none; font-weight:bold; display: block; text-align: center;">
+                                <i class="fas fa-truck-loading"></i> Transferir
+                            </a>
+                        </div>
+                    </div>
+                </td>
             </tr>
             {% empty %}
-            <tr><td colspan="3" style="text-align:center; padding: 20px;">Nenhum item cadastrado no estoque físico.</td></tr>
+            <tr><td colspan="{% if estoque_diario and controla_vasilhame_vazio %}6{% elif controla_vasilhame_vazio %}6{% else %}5{% endif %}" style="text-align:center; padding: 20px;">Nenhum item cadastrado no estoque físico.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    const CSRF_TOKEN = '{{ csrf_token }}';
+    const ESTOQUE_DIARIO = {{ estoque_diario|yesno:"true,false" }};
+    const PRECISA_ABERTURA = {{ precisa_abertura|yesno:"true,false" }};
+    const ITENS_CONTAGEM = {{ itens_contagem_json|safe }};
+
+    function mostrarObs(nomeProduto, observacao) {
+        Swal.fire({
+            title: '<h3 style="color:#03dac6; margin-bottom:0;">' + nomeProduto + '</h3>',
+            html: '<p style="color:#fff; font-size: 20px; margin-top:10px;"><strong>Observação:</strong><br><br>' + observacao + '</p>',
+            icon: 'info',
+            background: '#1e1e1e',
+            color: '#fff',
+            confirmButtonColor: '#03dac6',
+            confirmButtonText: 'Fechar'
+        });
+    }
+
+    function postJson(url, body) {
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+            body: JSON.stringify(body),
+        }).then(r => r.json());
+    }
+
+    function salvarLinha(tr) {
+        const itemId = tr.getAttribute('data-item-id');
+        const cheios = tr.querySelector('.inp-cheios').value;
+        const vazios = tr.querySelector('.inp-vazios').value;
+        return postJson("{% url 'atualizar_contagem_estoque' %}", {
+            item_id: itemId,
+            quantidade_estoque: cheios,
+            quantidade_vazios: vazios,
+        });
+    }
+
+    document.querySelectorAll('.btn-salvar-item').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tr = this.closest('tr');
+            this.disabled = true;
+            salvarLinha(tr)
+                .then(data => {
+                    if (data.status === 'sucesso') {
+                        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Salvo!', showConfirmButton: false, timer: 1500, background: '#1e1e1e', color: '#fff' });
+                    } else {
+                        Swal.fire({ icon: 'error', title: 'Erro', text: data.mensagem || 'Falha ao salvar.', background: '#1e1e1e', color: '#fff' });
+                    }
+                })
+                .finally(() => { this.disabled = false; });
+        });
+    });
+
+    function montarHtmlAbertura() {
+        let rows = ITENS_CONTAGEM.map(it => {
+            const step = it.unidade === 'UN' ? '1' : '0.001';
+            return `<tr>
+                <td style="padding:6px;text-align:left;color:#fff;">${it.nome}</td>
+                <td style="padding:6px;"><input type="number" class="swal-cheios" data-id="${it.id}" min="0" step="${step}" value="${it.cheios}" style="width:80px;padding:4px;"></td>
+                <td style="padding:6px;"><input type="number" class="swal-vazios" data-id="${it.id}" min="0" step="${step}" value="${it.vazios}" style="width:80px;padding:4px;"></td>
+            </tr>`;
+        }).join('');
+        return `<p style="color:#ccc;font-size:14px;margin-bottom:12px;">Informe a contagem física de <strong>cheios</strong> e <strong>vazios</strong> para iniciar o dia.</p>
+            <div style="max-height:320px;overflow-y:auto;">
+            <table style="width:100%;color:#fff;font-size:13px;">
+                <thead><tr style="border-bottom:1px solid #555;">
+                    <th style="padding:6px;text-align:left;">Item</th>
+                    <th style="padding:6px;">Cheios</th>
+                    <th style="padding:6px;">Vazios</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table></div>`;
+    }
+
+    function abrirModalAbertura() {
+        Swal.fire({
+            title: '<span style="color:#03dac6;">Contagem de abertura</span>',
+            html: montarHtmlAbertura(),
+            width: 560,
+            background: '#1e1e1e',
+            showCancelButton: true,
+            confirmButtonText: 'Confirmar contagem',
+            cancelButtonText: 'Depois',
+            confirmButtonColor: '#03dac6',
+            cancelButtonColor: '#555',
+            preConfirm: () => {
+                const linhas = [];
+                document.querySelectorAll('.swal-cheios').forEach(inp => {
+                    const id = inp.getAttribute('data-id');
+                    const vaziosInp = document.querySelector('.swal-vazios[data-id="' + id + '"]');
+                    linhas.push({
+                        item_id: parseInt(id, 10),
+                        quantidade_estoque: inp.value,
+                        quantidade_vazios: vaziosInp ? vaziosInp.value : 0,
+                    });
+                });
+                return linhas;
+            }
+        }).then(result => {
+            if (!result.isConfirmed) return;
+            postJson("{% url 'registrar_contagem_diaria' %}", { itens: result.value })
+                .then(data => {
+                    if (data.status === 'sucesso') {
+                        Swal.fire({ icon: 'success', title: 'Abertura registrada', text: data.mensagem, background: '#1e1e1e', color: '#fff' })
+                            .then(() => location.reload());
+                    } else {
+                        Swal.fire({ icon: 'error', title: 'Erro', text: data.mensagem, background: '#1e1e1e', color: '#fff' });
+                    }
+                });
+        });
+    }
+
+    const btnFechamento = document.getElementById('btn_fechamento_dia');
+    if (btnFechamento) {
+        btnFechamento.addEventListener('click', function() {
+            Swal.fire({
+                title: 'Registrar fechamento?',
+                text: 'Será gravado o saldo atual de cheios e vazios de todos os itens.',
+                icon: 'question',
+                background: '#1e1e1e',
+                color: '#fff',
+                showCancelButton: true,
+                confirmButtonText: 'Confirmar fechamento',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#6a4a9a',
+            }).then(result => {
+                if (!result.isConfirmed) return;
+                postJson("{% url 'registrar_fechamento_estoque' %}", {})
+                    .then(data => {
+                        if (data.status === 'sucesso') {
+                            Swal.fire({ icon: 'success', title: 'Fechamento registrado', text: data.mensagem, background: '#1e1e1e', color: '#fff' })
+                                .then(() => location.reload());
+                        } else {
+                            Swal.fire({ icon: 'error', title: 'Erro', text: data.mensagem, background: '#1e1e1e', color: '#fff' });
+                        }
+                    });
+            });
+        });
+    }
+
+    if (ESTOQUE_DIARIO && PRECISA_ABERTURA && ITENS_CONTAGEM.length > 0) {
+        document.addEventListener('DOMContentLoaded', abrirModalAbertura);
+    }
+</script>
 {% endblock %}

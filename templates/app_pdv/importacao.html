@@ -18,12 +18,17 @@
 
     <div class="card" style="flex: 1; min-width: 300px;">
         <h3 style="color: #15A0A5;"><i class="fas fa-users"></i> Importar Clientes</h3>
-        <p style="font-size: 0.9em; color: #aaa;">
-            O arquivo Excel deve ter as colunas:<br>
-            <strong>Nome</strong> (Obrigatório), <strong>Telefone</strong>, <strong>Whatsapp</strong>, <strong>Endereco</strong>.
+        <p style="font-size: 0.9em; color: #aaa; margin-bottom: 10px;">
+            <strong>Colunas:</strong> Nome, Telefone, WhatsApp, Endereco.<br>
+            Para evitar erros, baixe e preencha a nossa planilha modelo abaixo.
         </p>
+        
+        <a href="{% url 'baixar_modelo_excel' 'clientes' %}" class="btn" style="background-color: #2196F3; color: white; display: block; text-align: center; margin-bottom: 15px; text-decoration: none;">
+            <i class="fas fa-file-excel"></i> Baixar Modelo de Clientes
+        </a>
+
         <div style="background: #333; padding: 10px; border-radius: 4px; font-size: 0.8em; margin-bottom: 10px;">
-            <i class="fas fa-info-circle"></i> O sistema criará automaticamente o Cliente no menu clientes.
+            <i class="fas fa-info-circle"></i> O sistema criará ou atualizará o Cliente no banco de dados automaticamente.
         </div>
         
         <form action="{% url 'importar_clientes' %}" method="POST" enctype="multipart/form-data">
@@ -37,12 +42,17 @@
 
     <div class="card" style="flex: 1; min-width: 300px;">
         <h3 style="color: #15A0A5;"><i class="fas fa-box"></i> Importar Produtos</h3>
-        <p style="font-size: 0.9em; color: #aaa;">
-            O arquivo Excel deve ter as colunas:<br>
-            <strong>Nome</strong> (Obrigatório), <strong>Estoque</strong>, <strong>Custo</strong>, <strong>Venda</strong>.
+        <p style="font-size: 0.9em; color: #aaa; margin-bottom: 10px;">
+            <strong>Colunas:</strong> Item Pai, Unidade, Estoque Total, Nome Venda, Qtd Baixa, Preco Custo, Preco Venda.<br>
+            Para evitar erros, baixe e preencha a nossa planilha modelo abaixo.
         </p>
+
+        <a href="{% url 'baixar_modelo_excel' 'produtos' %}" class="btn" style="background-color: #4CAF50; color: white; display: block; text-align: center; margin-bottom: 15px; text-decoration: none;">
+            <i class="fas fa-file-excel"></i> Baixar Modelo de Produtos
+        </a>
+
         <div style="background: #333; padding: 10px; border-radius: 4px; font-size: 0.8em; margin-bottom: 10px;">
-            <i class="fas fa-info-circle"></i> O sistema criará automaticamente o Item no Estoque e um Produto "Unidade".
+            <i class="fas fa-info-circle"></i> O sistema criará o Item no Cofre (Estoque Pai) e o Produto de Venda de forma inteligente.
         </div>
 
         <form action="{% url 'importar_produtos' %}" method="POST" enctype="multipart/form-data">

@@ -3,14 +3,56 @@
 
 {% block content %}
 <style>
+    .venda-observacao-block textarea {
+        width: 100%;
+        min-height: 70px;
+        margin-top: 6px;
+        padding: 8px;
+        background: #1e1e1e;
+        border: 1px solid #555;
+        border-radius: 4px;
+        color: #e0e0e0;
+        font-family: inherit;
+        font-size: 0.9em;
+        resize: vertical;
+        box-sizing: border-box;
+    }
+    .observacao-print {
+        margin: 6px 0 0;
+        font-size: 0.9em;
+        white-space: pre-wrap;
+        word-break: break-word;
+        display: none;
+    }
+    .venda-observacao-block--leitura .observacao-print { display: block; }
+    .venda-observacao-block--leitura .observacao-print:empty { display: none; }
+    .btn-salvar-obs {
+        margin-top: 8px;
+        padding: 6px 14px;
+        background: #03dac6;
+        color: #000;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 0.85em;
+    }
+    .btn-salvar-obs:disabled { opacity: 0.6; cursor: not-allowed; }
+    #obs_status_msg { font-size: 0.8em; margin-left: 8px; }
+    #obs_status_msg.sucesso { color: #03dac6; }
+    #obs_status_msg.erro { color: #cf6679; }
+
     @media print {
-        .sidebar, .btn-voltar, .btn-imprimir { display: none !important; }
+        .sidebar, .btn-voltar, .btn-imprimir, .btn-cancelar { display: none !important; }
+        .observacao-edit { display: none !important; }
         .content { margin: 0; padding: 0; }
         .nota-fiscal { border: none !important; box-shadow: none !important; max-width: 100% !important; }
         body { background-color: #fff; color: #000; }
         .card { background-color: #fff; color: #000; }
         table { color: #000 !important; width: 100%; }
         th, td { border-bottom: 1px solid #000 !important; }
+        .observacao-print { color: #000 !important; display: block !important; }
+        .observacao-print:empty { display: none !important; }
     }
 </style>
 
@@ -45,17 +87,90 @@
         <p style="margin: 3px 0;"><strong>Cliente:</strong> {{ venda.cliente.nome|default:"Venda na loja" }}</p>
         
         {% if venda.cliente %}
+            
             {% if venda.cliente.whatsapp %}
-            <p style="margin: 3px 0;"><strong>WhatsApp:</strong> {{ venda.cliente.whatsapp }}</p>
+                <p style="margin: 3px 0;"><strong>WhatsApp:</strong> {{ venda.cliente.whatsapp }}</p>
+            {% elif venda.cliente.telefone %}
+                <p style="margin: 3px 0;"><strong>Contato:</strong> {{ venda.cliente.telefone }}</p>
             {% endif %}
             
+            <p style="margin: 3px 0;"><strong>Tipo de Lançamento:</strong> {{ venda.get_nome_forma_pagamento }}</p>
+            {% if liquidacoes %}
+            <p style="margin: 3px 0;"><strong>Liquidação:</strong></p>
+            <ul style="margin: 3px 0 3px 16px; padding: 0; font-size: 0.9em;">
+                {% for liq in liquidacoes %}
+                <li>
+                    {{ liq.get_meio_liquidacao_display }} — R$ {{ liq.valor|floatformat:2 }}
+                    {% if liq.meio_liquidacao == 'DINHEIRO' and liq.troco_para %}
+                        (troco p/ R$ {{ liq.troco_para|floatformat:2 }})
+                    {% endif %}
+                    {% if liq.meio_liquidacao == 'DINHEIRO' and not liq.conferencia_ok %}
+                        <span style="color: #ff9800;"> — aguardando conferência</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p style="margin: 3px 0;"><strong>Meio de Liquidação:</strong> {{ venda.get_nome_meio_liquidacao }}</p>
+            {% endif %}
+            
+            <p style="margin: 3px 0;"><strong>Vendedor:</strong> {{ venda.vendedor.username|default:"App (Autoatendimento)" }}</p>
+            
             {% if venda.cliente.endereco %}
-            <p style="margin: 3px 0;"><strong>Endereço:</strong><br>{{ venda.cliente.endereco }}</p>
+                <p style="margin: 3px 0;"><strong>Endereço:</strong> {{ venda.cliente.endereco }}</p>
             {% endif %}
         {% endif %}
         
-        <p style="margin: 3px 0;"><strong>Pagamento:</strong> {{ venda.get_forma_pagamento_display }}</p>
-        <p style="margin: 3px 0;"><strong>Vendedor:</strong> {{ venda.vendedor.username }}</p>
+        {% if venda.exige_conferencia_pagamento %}
+            {% if venda.conferencia_ok %}
+                <p style="margin: 3px 0;"><strong>Troco Recebido por:</strong> 
+                    {% if venda.quem_recebeu %}
+                        {{ venda.quem_recebeu.first_name|default:venda.quem_recebeu.username }}
+                    {% else %}
+                        Sistema (Venda Antiga)
+                    {% endif %}
+                </p>
+            {% else %}
+                {% if venda.eh_entrega %}
+                    <p style="margin: 3px 0; color: #cf6679;"><strong>Caixa:</strong> Aguardando acerto com motoboy</p>
+                {% else %}
+                    <p style="margin: 3px 0; color: #ffbb33;"><strong>Caixa:</strong> Aguardando acerto no balcão</p>
+                {% endif %}
+            {% endif %}
+        {% endif %}
+        </div>
+
+    {% if venda.eh_fiado %}
+    <div style="border-bottom: 1px dashed #555; padding-bottom: 10px; margin-bottom: 10px; background: #2a2010; padding: 10px; border-radius: 4px;">
+        <p style="margin: 3px 0; color: #ff9800; font-weight: bold;"><i class="fas fa-hand-holding-usd"></i> Venda Fiado</p>
+        <p style="margin: 3px 0;">Pago: R$ {{ venda.valor_pago_fiado|floatformat:2 }}</p>
+        <p style="margin: 3px 0; color: #cf6679;">Saldo devedor: R$ {{ venda.saldo_devedor|floatformat:2 }}</p>
+        {% if pagamentos_fiado %}
+        <small style="color: #aaa;">Pagamentos:</small>
+        <ul style="margin: 5px 0; padding-left: 18px; font-size: 0.85em; color: #ccc;">
+            {% for pg in pagamentos_fiado %}
+            <li>{{ pg.data_pagamento|date:"d/m/Y H:i" }} — R$ {{ pg.valor|floatformat:2 }} ({{ pg.get_meio_liquidacao_display }})</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="venda-observacao-block{% if venda.status == 'CANCELADO' %} venda-observacao-block--leitura{% endif %}" style="border-bottom: 1px dashed #555; padding-bottom: 10px; margin-bottom: 10px;">
+        <p style="margin: 3px 0;"><strong>Observação:</strong></p>
+        <p class="observacao-print" id="obs_print_text">{% if venda.observacao %}{{ venda.observacao }}{% endif %}</p>
+
+        {% if venda.status != 'CANCELADO' %}
+        <div class="observacao-edit">
+            <textarea id="input_observacao" maxlength="2000" placeholder="Ex: portão azul, referência próximo ao mercado...">{{ venda.observacao|default:"" }}</textarea>
+            <div>
+                <button type="button" class="btn-salvar-obs" id="btn_salvar_obs" onclick="salvarObservacao()">Salvar observação</button>
+                <span id="obs_status_msg"></span>
+            </div>
+        </div>
+        {% elif not venda.observacao %}
+        <p style="margin: 6px 0 0; color: #888; font-size: 0.9em;">—</p>
+        {% endif %}
     </div>
 
     <table style="width: 100%; border-collapse: collapse;">
@@ -69,8 +184,14 @@
         <tbody>
             {% for item in itens %}
             <tr>
-                <td>{{ item.produto.nome }}</td>
-                <td style="text-align: center;">{{ item.quantidade }}</td>
+                <td>{{ item.produto.nome_venda }}</td>
+                <td style="text-align: center;">
+                    {% if item.produto.item_estoque.unidade_medida == 'UN' %}
+                        {{ item.quantidade|floatformat:0 }}
+                    {% else %}
+                        {{ item.quantidade|floatformat:3 }}
+                    {% endif %}
+                </td>
                 <td style="text-align: right;">{{ item.preco_unitario }}</td>
             </tr>
             {% endfor %}
@@ -96,6 +217,53 @@
             
             window.location.href = "{% url 'cancelar_venda_pdv' venda.id %}";
         }
+    }
+
+    function atualizarTextoImpressao(texto) {
+        const el = document.getElementById('obs_print_text');
+        if (!el) return;
+        el.textContent = texto || '';
+    }
+
+    function salvarObservacao() {
+        const btn = document.getElementById('btn_salvar_obs');
+        const msg = document.getElementById('obs_status_msg');
+        const textarea = document.getElementById('input_observacao');
+        if (!btn || !textarea) return;
+
+        btn.disabled = true;
+        msg.textContent = 'Salvando...';
+        msg.className = '';
+
+        fetch("{% url 'salvar_observacao_venda' venda.id %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify({ observacao: textarea.value }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'sucesso') {
+                atualizarTextoImpressao(data.observacao);
+                msg.textContent = 'Salvo!';
+                msg.className = 'sucesso';
+            } else {
+                msg.textContent = data.mensagem || 'Erro ao salvar.';
+                msg.className = 'erro';
+            }
+        })
+        .catch(() => {
+            msg.textContent = 'Erro de conexão.';
+            msg.className = 'erro';
+        })
+        .finally(() => {
+            btn.disabled = false;
+            setTimeout(() => {
+                if (msg.className === 'sucesso') msg.textContent = '';
+            }, 2500);
+        });
     }
 </script>
 {% endblock %}

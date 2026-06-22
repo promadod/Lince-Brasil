@@ -51,6 +51,12 @@
                 <td>(+) Vendas Totais:</td>
                 <td style="text-align: right;">R$ {{ total_vendas|floatformat:2 }}</td>
             </tr>
+            {% if total_fiado %}
+            <tr>
+                <td>(+) Recebimentos Fiado:</td>
+                <td style="text-align: right;">R$ {{ total_fiado|floatformat:2 }}</td>
+            </tr>
+            {% endif %}
             <tr>
                 <td>(+) Receitas Extras:</td>
                 <td style="text-align: right;">R$ {{ entradas|floatformat:2 }}</td>
@@ -74,7 +80,7 @@
         <ul style="list-style: none; padding: 0; font-size: 0.9em;">
             {% for p in resumo_pgto %}
             <li style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                <span>{{ p.forma_pagamento }}:</span>
+                <span>{{ p.nome }}:</span>
                 <span>R$ {{ p.total|floatformat:2 }}</span>
             </li>
             {% endfor %}

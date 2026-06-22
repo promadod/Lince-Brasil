@@ -37,7 +37,7 @@
                             <thead>
                                 <tr>
                                     <th class="ps-4">Nome</th>
-                                    <th>Contato</th>
+                                    <th>Login no App</th> <th>Contato</th>
                                     <th class="text-center">Status</th>
                                 </tr>
                             </thead>
@@ -45,13 +45,23 @@
                                 {% for m in motoboys %}
                                 <tr>
                                     <td class="ps-4 fw-bold">{{ m.nome }}</td>
+                                    
+                                    <td><span class="badge bg-dark border border-secondary">{{ m.user.username|default:"Sem login" }}</span></td>
+                                    
                                     <td><small>{{ m.telefone }}</small></td>
+                                    
                                     <td class="text-center">
-                                        {% if m.ativo %}
-                                            <span class="badge bg-success">Ativo</span>
-                                        {% else %}
-                                            <span class="badge bg-danger">Inativo</span>
-                                        {% endif %}
+                                        <div class="d-flex justify-content-center align-items-center gap-4">
+                                            {% if m.ativo %}
+                                                <span class="badge bg-success">Ativo</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">Inativo</span>
+                                            {% endif %}
+                                            
+                                            <a href="{% url 'editar_motoboy' m.id %}" class="btn btn-sm btn-outline-info" title="Editar ou Trocar Senha">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% empty %}

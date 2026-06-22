@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}Minha Assinatura{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2><i class="fas fa-file-invoice-dollar"></i> Gestão de Assinatura</h2>
+        
+        {% if loja.status_assinatura == 'ATIVO' %}
+            <span class="badge bg-success" style="font-size: 1.2em; padding: 10px;">ASSINATURA ATIVA</span>
+        {% elif loja.status_assinatura == 'GRATUITO' %}
+            <span class="badge bg-info text-dark" style="font-size: 1.2em; padding: 10px;">PERÍODO DE TESTE</span>
+        {% else %}
+            <span class="badge bg-danger" style="font-size: 1.2em; padding: 10px;">{{ loja.get_status_assinatura_display }}</span>
+        {% endif %}
+    </div>
+
+    <div class="row-flex" style="gap: 20px; flex-wrap: wrap;">
+        <div class="card" style="flex: 1; min-width: 300px; background-color: #2a2a2a; border: 1px solid #444;">
+            <h3 style="color: #00ffaa;">Detalhes do Plano</h3>
+            <p><strong>Loja:</strong> {{ loja.nome }}</p>
+            <p><strong>Mensalidade:</strong> R$ {{ loja.valor_mensalidade }}</p>
+            <p><strong>Vencimento:</strong> {{ loja.data_vencimento|date:"d/m/Y" }}</p>
+            
+            {% if loja.dias_restantes > 0 %}
+                <p style="color: #aaa;">Vence em {{ loja.dias_restantes }} dias.</p>
+            {% elif loja.dias_restantes == 0 %}
+                <p style="color: #ffbb33; font-weight: bold;">VENCE HOJE!</p>
+            {% else %}
+                <p style="color: #cf6679; font-weight: bold;">Vencido há {{ loja.dias_restantes|stringformat:"d"|slice:"1:" }} dias.</p>
+            {% endif %}
+
+            {% if loja.link_pagamento_atual %}
+                <a href="{{ loja.link_pagamento_atual }}" target="_blank" class="btn btn-success" style="width: 100%; margin-top: 10px; text-align: center;">
+                    <i class="fas fa-qrcode"></i> Pagar Fatura Atual
+                </a>
+            {% else %}
+                <button disabled class="btn" style="width: 100%; margin-top: 10px; background-color: #444; color: #aaa;">
+                    Nenhuma fatura pendente
+                </button>
+            {% endif %}
+        </div>
+
+        <div class="card" style="flex: 2; min-width: 300px; padding: 0;">
+            <div style="padding: 15px; border-bottom: 1px solid #444;">
+                <h3 style="margin: 0;">Histórico de Faturas</h3>
+            </div>
+            <table class="table table-dark table-striped" style="margin: 0;">
+                <thead>
+                    <tr>
+                        <th>Vencimento</th>
+                        <th>Valor</th>
+                        <th>Status</th>
+                        <th>Pagamento</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fatura in faturas %}
+                    <tr>
+                        <td>{{ fatura.data_vencimento|date:"d/m/Y" }}</td>
+                        <td>R$ {{ fatura.valor }}</td>
+                        <td>
+                            {% if fatura.pago %}
+                                <span style="color: #00ffaa;"><i class="fas fa-check-circle"></i> Pago</span>
+                            {% else %}
+                                <span style="color: #ffbb33;"><i class="fas fa-clock"></i> Pendente</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ fatura.data_pagamento|date:"d/m/Y"|default:"-" }}</td>
+                        <td>
+                            {% if not fatura.pago and loja.link_pagamento_atual %}
+                                <a href="{{ loja.link_pagamento_atual }}" target="_blank" title="Pagar">
+                                    <i class="fas fa-external-link-alt"></i>
+                                </a>
+                            {% elif fatura.comprovante_url %}
+                                <a href="{{ fatura.comprovante_url }}" target="_blank" title="Ver Comprovante">
+                                    <i class="fas fa-file-pdf"></i>
+                                </a>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #777;">Nenhuma fatura registrada.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

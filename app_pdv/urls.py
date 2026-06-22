@@ -1,6 +1,8 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
-from .views import CustomAuthToken,EntregasDisponiveisView, AssumirEntregaView, MinhasEntregasView
+from . import gestor_views
+from .views import CustomAuthToken,EntregasDisponiveisView, AssumirEntregaView, MinhasEntregasView, ReceberLeadTrafficHub
+
 
 urlpatterns = [
     #--------------------------------Dashboard-----------------------------
@@ -39,6 +41,7 @@ urlpatterns = [
     path('lojas/', views.lista_lojas, name='lista_lojas'),
     path('lojas/novo/', views.gerenciar_loja, name='nova_loja'),
     path('lojas/editar/<int:id>/', views.gerenciar_loja, name='editar_loja'),
+    path('api/lojas/', views.api_listar_lojas_rede, name='api_listar_lojas'),
 
     # ------------------------------Vendas (PDV)------------------------------
 
@@ -51,6 +54,7 @@ urlpatterns = [
 
     path('vendas/historico/', views.lista_vendas, name='lista_vendas'),
     path('vendas/detalhes/<int:id>/', views.detalhes_venda, name='detalhes_venda'),
+    path('vendas/detalhes/<int:id>/observacao/', views.salvar_observacao_venda, name='salvar_observacao_venda'),
 
     # ------------------------------Caixa------------------------------
 
@@ -63,6 +67,13 @@ urlpatterns = [
 
     path('estoque/', views.lista_estoque, name='lista_estoque'),
     path('estoque/adicionar/', views.adicionar_estoque, name='adicionar_estoque'),
+    path('estoque/transferir/<int:item_id>/', views.transferir_estoque, name='transferir_estoque'),
+    path('estoque/transferir-lote/', views.transferir_estoque_lote, name='transferir_estoque_lote'),
+    path('estoque/log-transferencias/', views.log_transferencias_estoque, name='log_transferencias_estoque'),
+    path('estoque/atualizar-contagem/', views.atualizar_contagem_estoque, name='atualizar_contagem_estoque'),
+    path('estoque/contagem-diaria/', views.registrar_contagem_diaria, name='registrar_contagem_diaria'),
+    path('estoque/fechamento/', views.registrar_fechamento_estoque, name='registrar_fechamento_estoque'),
+    path('estoque/log-fechamento/', views.log_fechamento_estoque, name='log_fechamento_estoque'),
 
     # ------------------------------Itens------------------------------
 
@@ -75,6 +86,7 @@ urlpatterns = [
     # ------------------------------Relatórios e Financeiro------------------------------
 
     path('relatorios/', views.relatorios, name='relatorios'),
+    path('fiado/pagamento/<int:venda_id>/', views.registrar_pagamento_fiado, name='registrar_pagamento_fiado'),
     path('categorias/', views.lista_categorias, name='lista_categorias'),
     path('categorias/deletar/<int:id>/', views.deletar_categoria, name='deletar_categoria'),
     path('transacao/nova/', views.adicionar_transacao, name='adicionar_transacao'),
@@ -83,23 +95,38 @@ urlpatterns = [
 
 
     # ------------------------------Importação------------------------------
+
     path('importacao/', views.menu_importacao, name='menu_importacao'),
     path('importacao/clientes/', views.importar_clientes, name='importar_clientes'),
     path('importacao/produtos/', views.importar_produtos, name='importar_produtos'),
+    path('importacao/modelo/<str:tipo>/', views.baixar_modelo_excel, name='baixar_modelo_excel'),
 
     # ------------------------------Vendedor------------------------------
+
     path('vendedores/', views.lista_vendedores, name='lista_vendedores'),
     path('vendedores/cadastrar/', views.cadastrar_vendedor, name='cadastrar_vendedor'),
+    path('vendedores/permissoes/<int:id>/', views.gerenciar_permissoes, name='gerenciar_permissoes'),
+    path('vendedores/editar/<int:id>/', views.editar_vendedor, name='editar_vendedor'),
 
     # ------------------------------Entregas------------------------------
+
     path('entregas/', views.lista_entregas, name='lista_entregas'),
     path('entregas/motoboy/novo/', views.cadastrar_motoboy, name='cadastrar_motoboy'),
     path('entregas/moto/nova/', views.cadastrar_moto, name='cadastrar_moto'),
+    path('entregas/motoboy/editar/<int:id>/', views.editar_motoboy, name='editar_motoboy'),
     path('vendas/confirmar-motoboy/<int:venda_id>/', views.confirmar_recebimento_motoboy, name='confirmar_recebimento_motoboy'),
+    path('api/', include('transporte.urls')),
 
     # ------------------------------ROTA DA API (Flutter OBS: Motobot / Diretor)------------------------------
 
     path('api/login/', CustomAuthToken.as_view(), name='api_token_auth'),
+
+    # ------------------------------ Painel Gestor (mobile) ------------------------------
+    path('api/gestor/resumo/', gestor_views.api_gestor_resumo, name='api_gestor_resumo'),
+    path('api/gestor/lojas/', gestor_views.api_gestor_lojas, name='api_gestor_lojas'),
+    path('api/gestor/financeiro/', gestor_views.api_gestor_financeiro, name='api_gestor_financeiro'),
+    path('api/gestor/vendas/', gestor_views.api_gestor_vendas, name='api_gestor_vendas'),
+
     path('api/entregas/assumir/<int:venda_id>/', AssumirEntregaView.as_view(), name='api_assumir_entrega'),
     path('api/entregas/minhas/', MinhasEntregasView.as_view(), name='api_minhas_entregas'),
     path('api/entregas/disponiveis/', EntregasDisponiveisView.as_view(), name='api_listar_entregas'),
@@ -113,6 +140,8 @@ urlpatterns = [
     path('api/torre/pedidos/', views.api_pedidos_torre, name='api_pedidos_torre'),
     path('api/torre/atualizar/<int:venda_id>/', views.api_atualizar_status_pedido, name='api_atualizar_status'),
     path('api/produtos/', views.api_listar_produtos, name='api_listar_produtos'),
+    path('api/formas-pagamento/', views.api_formas_pagamento, name='api_formas_pagamento'),
+    path('api/precos-fornecedor/<int:item_id>/', views.api_precos_fornecedor_item, name='api_precos_fornecedor_item'),
     path('api/pedido/criar/', views.api_criar_pedido, name='api_criar_pedido'),
     path('api/cliente/buscar/', views.api_buscar_cliente, name='api_buscar_cliente'),
     path('api/cliente/pedidos/', views.api_meus_pedidos, name='api_meus_pedidos'),
@@ -128,5 +157,17 @@ urlpatterns = [
     path('torre-controle/', views.torre_controle, name='app_vendas'),
     path('api/loja/toggle/', views.api_toggle_loja, name='api_toggle_loja'),
 
+    # -------------------------------- Rotas de trafego pago --------------------------------------
 
+    path('api/receber-lead/', ReceberLeadTrafficHub.as_view(), name='receber_lead'),
+
+
+    # -------------------------------- OUTRAS ROTAS --------------------------------------
+
+    path('sair/', views.fazer_logout, name='logout'),
+    path('assinatura/bloqueada/', views.assinatura_bloqueada, name='assinatura_bloqueada'),
+    path('assinatura/minha-conta/', views.minha_assinatura, name='minha_assinatura'),
+
+    
 ]
+

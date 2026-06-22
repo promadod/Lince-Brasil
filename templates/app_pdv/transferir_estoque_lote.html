@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% block title %}Transferência em lote{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 1100px; margin: 0 auto; padding: 24px;">
+    <h3 style="color: #03dac6; margin-bottom: 8px;"><i class="fas fa-people-carry"></i> Transferência em lote</h3>
+    <p style="color: #aaa; margin-bottom: 20px;">
+        Selecione os itens, informe a quantidade de cada um e a filial destino. Só serão transferidos itens que já existem na outra loja (mesmo nome, ignorando acentos).
+    </p>
+
+    <form method="POST" id="form-lote">
+        {% csrf_token %}
+
+        <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 20px;">
+            <div style="flex: 1; min-width: 220px;">
+                <label style="color: #fff; display: block; margin-bottom: 8px;">Filial destino</label>
+                <select name="loja_destino" required {% if not lojas %}disabled{% endif %} style="width: 100%; padding: 10px; border-radius: 5px; background-color: #2a2a3e; color: #fff; border: 1px solid #444;">
+                    <option value="">Selecione a loja...</option>
+                    {% for loja in lojas %}
+                        <option value="{{ loja.id }}">{{ loja.nome }}</option>
+                    {% endfor %}
+                </select>
+                {% if not lojas %}
+                <p style="color: #cf6679; margin-top: 8px; font-size: 14px;">Nenhuma filial destino disponível (cadastre outra loja ou peça permissão de gerente).</p>
+                {% endif %}
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn" onclick="marcarTodos(true)" style="background-color: #444; color: #fff;">Marcar todos</button>
+                <button type="button" class="btn" onclick="marcarTodos(false)" style="background-color: #444; color: #fff;">Desmarcar</button>
+                <button type="button" class="btn" onclick="preencherSaldoTotal()" style="background-color: #444; color: #fff;">Qtd = saldo (marcados)</button>
+            </div>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table style="width:100%; color: #fff; border-collapse: collapse;">
+                <thead>
+                    <tr style="text-align:left; border-bottom: 1px solid #444;">
+                        <th style="padding:10px; width: 40px;"></th>
+                        <th style="padding:10px;">Item</th>
+                        <th style="padding:10px;">Unid.</th>
+                        <th style="padding:10px;">Saldo atual</th>
+                        <th style="padding:10px; min-width: 140px;">Qtd. a transferir</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in itens %}
+                    <tr style="border-bottom: 1px solid #333;">
+                        <td style="padding:10px; vertical-align: middle;">
+                            <input type="checkbox" name="incluir" value="{{ item.id }}" class="chk-item" style="width: 18px; height: 18px;">
+                        </td>
+                        <td style="padding:10px;">{{ item.nome }}</td>
+                        <td style="padding:10px; color: #bbb;">{{ item.unidade_medida }}</td>
+                        <td style="padding:10px; font-weight: bold;">{{ item.estoque_formatado }}</td>
+                        <td style="padding:10px;">
+                            <input type="number" name="qtd_{{ item.id }}" step="0.001" min="0.001"
+                                   data-max="{{ item.quantidade_estoque|stringformat:'f' }}"
+                                   class="inp-qtd"
+                                   style="width: 100%; max-width: 160px; padding: 8px; border-radius: 5px; background-color: #2a2a3e; color: #fff; border: 1px solid #444;"
+                                   placeholder="0">
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" style="text-align:center; padding: 24px; color: #888;">Nenhum item no estoque desta loja.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; flex-wrap: wrap; gap: 12px;">
+            <a href="{% url 'lista_estoque' %}" class="btn" style="background-color: #444; color: #fff;">Voltar</a>
+            <button type="submit" class="btn" {% if not lojas %}disabled{% endif %} style="background-color: #03dac6; color: #000; font-weight: bold;">
+                <i class="fas fa-paper-plane"></i> Confirmar transferência em lote
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+function marcarTodos(v) {
+    document.querySelectorAll('.chk-item').forEach(function (el) { el.checked = v; });
+}
+function preencherSaldoTotal() {
+    document.querySelectorAll('.chk-item:checked').forEach(function (chk) {
+        var row = chk.closest('tr');
+        var inp = row.querySelector('.inp-qtd');
+        if (inp && inp.dataset.max) {
+            inp.value = parseFloat(inp.dataset.max.replace(',', '.'));
+        }
+    });
+}
+document.getElementById('form-lote').addEventListener('submit', function (e) {
+    var n = document.querySelectorAll('.chk-item:checked').length;
+    if (n === 0) {
+        e.preventDefault();
+        alert('Selecione pelo menos um item.');
+        return false;
+    }
+});
+</script>
+{% endblock %}

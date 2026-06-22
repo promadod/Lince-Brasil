@@ -3,10 +3,46 @@
 {% block title %}{{ titulo }}{% endblock %}
 
 {% block content %}
+
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+<style>
+    /* Ajustes para o Modo Escuro do Select2 */
+    .select2-container--default .select2-selection--single {
+        background-color: #2c2c2c; 
+        border: 1px solid #444;
+        color: #fff;
+        height: 38px; 
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        color: #e0e0e0;
+        line-height: 36px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 36px;
+    }
+    .select2-dropdown {
+        background-color: #2c2c2c;
+        border: 1px solid #444;
+    }
+    .select2-search__field {
+        background-color: #1e1e1e;
+        color: #fff;
+        border: 1px solid #555;
+    }
+    .select2-results__option {
+        color: #e0e0e0;
+    }
+    .select2-results__option--highlighted.select2-results__option--selectable {
+        background-color: #28a745; 
+        color: white;
+    }
+</style>
+
 <h2 style="margin-bottom:20px;">{{ titulo }}</h2>
 
 <div class="card" style="max-width: 600px;">
-    <form method="post">
+    <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         
         {% for field in form %}
@@ -20,9 +56,23 @@
         {% endfor %}
 
         <div style="margin-top: 20px;">
-            <button type="submit">Salvar</button>
+            <button type="submit" class="btn btn-success">Salvar</button>
             <a href="javascript:history.back()" class="btn" style="background-color: #333; color:#fff; margin-left:10px;">Cancelar</a>
         </div>
     </form>
 </div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+    $(document).ready(function() {
+        $('.select-search').select2({
+            placeholder: "Digite para pesquisar...",
+            allowClear: true,
+            width: '100%' 
+        });
+    });
+</script>
+
 {% endblock %}
