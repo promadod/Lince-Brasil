@@ -22,6 +22,8 @@ urlpatterns = [
     path('clientes/novo/', views.gerenciar_cliente, name='novo_cliente'),
     path('clientes/editar/<int:id>/', views.gerenciar_cliente, name='editar_cliente'),
     path('clientes/deletar/<int:id>/', views.deletar_cliente, name='deletar_cliente'),
+    path('config/fidelidade/', views.config_fidelidade, name='config_fidelidade'),
+    path('config/whatsapp/', views.config_whatsapp, name='config_whatsapp'),
 
     # ------------------------------Vendas------------------------------
 
@@ -126,6 +128,8 @@ urlpatterns = [
     path('api/gestor/lojas/', gestor_views.api_gestor_lojas, name='api_gestor_lojas'),
     path('api/gestor/financeiro/', gestor_views.api_gestor_financeiro, name='api_gestor_financeiro'),
     path('api/gestor/vendas/', gestor_views.api_gestor_vendas, name='api_gestor_vendas'),
+    path('api/gestor/clientes/', gestor_views.api_gestor_clientes, name='api_gestor_clientes'),
+    path('api/gestor/campanha/', gestor_views.api_gestor_campanha, name='api_gestor_campanha'),
 
     path('api/entregas/assumir/<int:venda_id>/', AssumirEntregaView.as_view(), name='api_assumir_entrega'),
     path('api/entregas/minhas/', MinhasEntregasView.as_view(), name='api_minhas_entregas'),
@@ -144,6 +148,8 @@ urlpatterns = [
     path('api/precos-fornecedor/<int:item_id>/', views.api_precos_fornecedor_item, name='api_precos_fornecedor_item'),
     path('api/pedido/criar/', views.api_criar_pedido, name='api_criar_pedido'),
     path('api/cliente/buscar/', views.api_buscar_cliente, name='api_buscar_cliente'),
+    path('api/fidelidade/config/', views.api_fidelidade_config, name='api_fidelidade_config'),
+    path('api/fidelidade/status/', views.api_fidelidade_status, name='api_fidelidade_status'),
     path('api/cliente/pedidos/', views.api_meus_pedidos, name='api_meus_pedidos'),
     path('api/venda/conferir/<int:venda_id>/', views.api_conferir_venda, name='api_conferir_venda'),
 

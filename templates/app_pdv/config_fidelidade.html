@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}Plano de Fidelidade{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom:20px;">Plano de Fidelidade</h2>
+<p style="color:#aaa; margin-bottom:20px;">
+    Configure a meta que o cliente precisa atingir para liberar a promoção no carrinho do app.
+    A meta pode ser por <strong>quantidade de produtos</strong> ou por <strong>valor acumulado (pontos)</strong>.
+</p>
+
+<div class="card" style="max-width: 600px;">
+    <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+        <div style="margin-bottom: 15px;">
+            <label style="display:block; margin-bottom:5px;">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<small style="color:#888;">{{ field.help_text }}</small>{% endif %}
+            {% if field.errors %}<small style="color:#ff5555;">{{ field.errors }}</small>{% endif %}
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn">Salvar Configuração</button>
+    </form>
+</div>
+{% endblock %}

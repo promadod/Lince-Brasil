@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}WhatsApp e Campanhas{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom:20px;">WhatsApp Automático & Campanhas</h2>
+<p style="color:#aaa; margin-bottom:20px;">
+    Configure mensagens personalizáveis para cada loja (SaaS).
+    O sistema gera links WhatsApp com os dados do pedido.
+    Placeholders do pedido: <code>{pedido}</code>, <code>{cliente}</code>, <code>{telefone}</code>,
+    <code>{whatsapp}</code>, <code>{endereco}</code>, <code>{pagamento}</code>, <code>{itens}</code>, <code>{total}</code>, <code>{obs}</code>.
+    Campanhas: <code>{cliente}</code>, <code>{bairro}</code>, <code>{desconto}</code>.
+</p>
+
+<div class="card" style="max-width: 720px;">
+    <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+        <div style="margin-bottom: 15px;">
+            <label style="display:block; margin-bottom:5px;">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<small style="color:#888;">{{ field.help_text }}</small>{% endif %}
+            {% if field.errors %}<small style="color:#ff5555;">{{ field.errors }}</small>{% endif %}
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn">Salvar Configuração</button>
+    </form>
+</div>
+{% endblock %}

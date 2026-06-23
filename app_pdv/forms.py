@@ -21,6 +21,7 @@ class ProdutoForm(forms.ModelForm):
         fields = [
             'item_estoque', 'nome_venda', 'imagem', 'quantidade_baixa',
             'preco_compra', 'preco_venda', 'fornecedor', 'vende_vasilhame_vazio',
+            'rastrear_recompra', 'dias_recompra', 'mensagem_recompra',
         ]
         
         labels = {
@@ -72,12 +73,45 @@ class ProdutoForm(forms.ModelForm):
 class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
-        fields = ['nome', 'telefone', 'whatsapp', 'endereco']
+        fields = ['nome', 'telefone', 'whatsapp', 'endereco', 'bairro']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
             'telefone': forms.TextInput(attrs={'class': 'form-control'}),
             'whatsapp': forms.TextInput(attrs={'class': 'form-control'}),
             'endereco': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'bairro': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Botânico'}),
+        }
+
+class ConfigFidelidadeForm(forms.ModelForm):
+    class Meta:
+        model = Loja
+        fields = [
+            'fidelidade_ativa', 'fidelidade_tipo_meta', 'fidelidade_meta', 'fidelidade_desconto_pct',
+        ]
+        widgets = {
+            'fidelidade_ativa': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'fidelidade_tipo_meta': forms.Select(attrs={'class': 'form-control'}),
+            'fidelidade_meta': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'fidelidade_desconto_pct': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+        }
+
+class ConfigWhatsAppForm(forms.ModelForm):
+    class Meta:
+        model = Loja
+        fields = [
+            'whatsapp_notificar_pedido', 'whatsapp_numero_empresa',
+            'whatsapp_msg_novo_pedido', 'whatsapp_msg_saiu_entrega', 'whatsapp_msg_entrega_concluida',
+            'msg_campanha_ativos', 'msg_campanha_inativos', 'campanha_desconto_pct',
+        ]
+        widgets = {
+            'whatsapp_notificar_pedido': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'whatsapp_numero_empresa': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '21999999999'}),
+            'whatsapp_msg_novo_pedido': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
+            'whatsapp_msg_saiu_entrega': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'whatsapp_msg_entrega_concluida': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'msg_campanha_ativos': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'msg_campanha_inativos': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'campanha_desconto_pct': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
         }
 
 class FornecedorForm(forms.ModelForm):

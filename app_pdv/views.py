@@ -76,6 +76,15 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from .serializers import UserSerializer, ProdutoCatalogoSerializer
 from .gestor_api import usuario_pode_acessar_gestor
+from .recompra_service import montar_ranking_recompra
+from .clientes_service import montar_estatisticas_clientes, montar_links_campanha
+from .fidelidade_service import (
+    obter_config_fidelidade, status_fidelidade_cliente, calcular_desconto_fidelidade,
+)
+from .whatsapp_service import (
+    notificar_novo_pedido_empresa, notificar_cliente_saiu_entrega,
+    notificar_cliente_entrega_concluida,
+)
 
 # ------------------------- HELPER FUNCTION (SAAS) -------------------------------------
 def get_loja_usuario(user):
@@ -260,10 +269,24 @@ def deletar_item(request, id):
 @login_required
 def lista_clientes(request):
     loja = check_loja(request)
-    if not loja: return redirect('admin:index')
+    if not loja:
+        return redirect('admin:index')
 
-    clientes = Cliente.objects.filter(loja=loja).order_by('nome')
-    return render(request, 'app_pdv/lista_clientes.html', {'clientes': clientes})
+    stats = montar_estatisticas_clientes(Loja.objects.filter(id=loja.id))
+    publico = request.GET.get('campanha', '')
+    links_campanha = []
+    if publico in ('ativos', 'inativos'):
+        desconto = request.GET.get('desconto')
+        desconto_val = float(desconto) if desconto else None
+        links_campanha = montar_links_campanha(loja, publico=publico, desconto_pct=desconto_val)
+
+    return render(request, 'app_pdv/lista_clientes.html', {
+        'stats': stats,
+        'loja': loja,
+        'publico_campanha': publico,
+        'links_campanha': links_campanha,
+        'desconto_campanha': loja.campanha_desconto_pct,
+    })
 
 @login_required
 def deletar_cliente(request, id):
@@ -290,6 +313,40 @@ def gerenciar_cliente(request, id=None):
         form = ClienteForm(instance=cliente)
     
     return render(request, 'app_pdv/form_generico.html', {'form': form, 'titulo': 'Cadastro de Cliente'})
+
+
+@login_required
+def config_fidelidade(request):
+    loja = check_loja(request)
+    if not loja:
+        return redirect('admin:index')
+    from .forms import ConfigFidelidadeForm
+    if request.method == 'POST':
+        form = ConfigFidelidadeForm(request.POST, instance=loja)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Configuração de fidelidade salva!')
+            return redirect('config_fidelidade')
+    else:
+        form = ConfigFidelidadeForm(instance=loja)
+    return render(request, 'app_pdv/config_fidelidade.html', {'form': form, 'loja': loja})
+
+
+@login_required
+def config_whatsapp(request):
+    loja = check_loja(request)
+    if not loja:
+        return redirect('admin:index')
+    from .forms import ConfigWhatsAppForm
+    if request.method == 'POST':
+        form = ConfigWhatsAppForm(request.POST, instance=loja)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Configurações de WhatsApp salvas!')
+            return redirect('config_whatsapp')
+    else:
+        form = ConfigWhatsAppForm(instance=loja)
+    return render(request, 'app_pdv/config_whatsapp.html', {'form': form, 'loja': loja})
 
 
 # ----------------------------- VENDAS ------------------------------------
@@ -842,7 +899,8 @@ def dashboard(request):
         # Variáveis do Dropdown
         'lojas_permitidas': lojas_permitidas,
         'loja_selecionada_id': loja_selecionada_id,
-        'mostrar_filtro_lojas': lojas_permitidas.count() > 1
+        'mostrar_filtro_lojas': lojas_permitidas.count() > 1,
+        'ranking_recompra': montar_ranking_recompra(lojas_alvo, limite=15),
     }
     return render(request, 'app_pdv/dashboard.html', context)
 
@@ -2631,7 +2689,11 @@ class AssumirEntregaView(APIView):
             venda.status = 'SAIU_ENTREGA' 
             
             venda.save()
-            return Response({'mensagem': 'Boa viagem!'})
+            link_zap = notificar_cliente_saiu_entrega(venda)
+            resp = {'mensagem': 'Boa viagem!'}
+            if link_zap:
+                resp['whatsapp_cliente_link'] = link_zap
+            return Response(resp)
             
         except Venda.DoesNotExist:
             return Response({'erro': 'Venda não encontrada'}, status=404)
@@ -2830,7 +2892,11 @@ def api_finalizar_entrega(request, venda_id):
     venda.status = 'FINALIZADO'  
     venda.save()
     
-    return Response({'sucesso': 'Entrega finalizada com sucesso!'})
+    link_zap = notificar_cliente_entrega_concluida(venda)
+    resp = {'sucesso': 'Entrega finalizada com sucesso!'}
+    if link_zap:
+        resp['whatsapp_cliente_link'] = link_zap
+    return Response(resp)
 
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
@@ -2953,6 +3019,12 @@ def api_atualizar_status_pedido(request, venda_id):
             venda.status_entrega = 'ENTREGUE'
 
         venda.save()
+
+        whatsapp_link = None
+        if novo_status == 'SAIU_ENTREGA':
+            whatsapp_link = notificar_cliente_saiu_entrega(venda)
+        elif novo_status == 'FINALIZADO' and venda.eh_entrega:
+            whatsapp_link = notificar_cliente_entrega_concluida(venda)
         
         # =================================================================
         # 2. O CÉREBRO DA INTEGRAÇÃO: O PDV IDENTIFICA A CONFIGURAÇÃO DA LOJA
@@ -2982,7 +3054,10 @@ def api_atualizar_status_pedido(request, venda_id):
                 )
         # =================================================================
         
-        return JsonResponse({'sucesso': True})
+        resp = {'sucesso': True}
+        if whatsapp_link:
+            resp['whatsapp_cliente_link'] = whatsapp_link
+        return JsonResponse(resp)
     return JsonResponse({'erro': 'Método inválido'}, status=400)
 
 
@@ -3078,17 +3153,31 @@ def api_criar_pedido(request):
                         cliente_obj.endereco = endereco_novo
                     cliente_obj.save()
 
+            usar_fidelidade = data.get('usar_fidelidade', False)
+            total_pedido = Decimal(str(data.get('total', 0)))
+            obs_extra = observacao_texto
+
+            if cliente_obj and usar_fidelidade and loja.fidelidade_ativa:
+                subtotal = total_pedido - Decimal(str(data.get('taxa_entrega', 0) if eh_entrega else 0))
+                desconto = calcular_desconto_fidelidade(cliente_obj, loja, subtotal, usar_promocao=True)
+                if desconto > 0:
+                    total_pedido -= desconto
+                    obs_extra += f" | FIDELIDADE: promoção utilizada (-R$ {desconto:.2f})"
+                    cliente_obj.promocao_fidelidade_ativa = False
+                    cliente_obj.progresso_fidelidade = Decimal('0')
+                    cliente_obj.save(update_fields=['promocao_fidelidade_ativa', 'progresso_fidelidade'])
+
             # CRIA A VENDA
             venda = Venda.objects.create(
                 loja=loja, 
                 cliente=cliente_obj,
-                total=data.get('total'),
+                total=total_pedido,
                 eh_entrega=eh_entrega, # <-- SALVANDO CORRETAMENTE
                 taxa_entrega=data.get('taxa_entrega', 0.0),
                 endereco_entrega=endereco_novo,
                 forma_pagamento=pagamento,
                 meio_liquidacao=meio_liquidacao,
-                observacao=observacao_texto,
+                observacao=obs_extra,
                 origem='APP',
                 status='PENDENTE',
                 troco_para=valor_troco if meio_liquidacao == 'DINHEIRO' else 0,
@@ -3113,7 +3202,12 @@ def api_criar_pedido(request):
                     baixa_vasilhame_vazio=baixa_vazio,
                 )
 
-            return JsonResponse({'sucesso': True, 'pedido_id': venda.id}, status=201)
+            venda.save()
+            link_zap_empresa = notificar_novo_pedido_empresa(venda)
+            resp = {'sucesso': True, 'pedido_id': venda.id}
+            if link_zap_empresa:
+                resp['whatsapp_empresa_link'] = link_zap_empresa
+            return JsonResponse(resp, status=201)
 
         except Exception as e:
             # Imprime o erro exato no terminal do Django para facilitar futuras manutenções
@@ -3138,10 +3232,42 @@ def api_buscar_cliente(request):
                 'encontrou': True,
                 'nome': cliente.nome,
                 'endereco': cliente.endereco,
-                'telefone': cliente.telefone
+                'telefone': cliente.telefone,
+                'bairro': cliente.bairro or '',
+                'fidelidade': status_fidelidade_cliente(cliente, cliente.loja),
             })
             
     return JsonResponse({'encontrou': False})
+
+
+def api_fidelidade_config(request):
+    loja_id = request.GET.get('loja_id', 1)
+    try:
+        loja = Loja.objects.get(id=loja_id)
+    except Loja.DoesNotExist:
+        return JsonResponse({'erro': 'Loja não encontrada'}, status=404)
+    cfg = obter_config_fidelidade(loja)
+    if not cfg:
+        return JsonResponse({'ativa': False})
+    return JsonResponse(cfg)
+
+
+def api_fidelidade_status(request):
+    telefone = request.GET.get('telefone')
+    loja_id = request.GET.get('loja_id', 1)
+    if not telefone:
+        return JsonResponse({'erro': 'Telefone obrigatório'}, status=400)
+    try:
+        loja = Loja.objects.get(id=loja_id)
+    except Loja.DoesNotExist:
+        return JsonResponse({'erro': 'Loja não encontrada'}, status=404)
+    cliente = Cliente.objects.filter(telefone=telefone, loja=loja).first()
+    if not cliente:
+        return JsonResponse({'encontrou': False, 'fidelidade': status_fidelidade_cliente(None, loja)})
+    return JsonResponse({
+        'encontrou': True,
+        'fidelidade': status_fidelidade_cliente(cliente, loja),
+    })
 
 
 def api_meus_pedidos(request):

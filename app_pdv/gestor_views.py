@@ -15,6 +15,7 @@ from .gestor_api import (
     resolver_lojas_alvo,
     parse_periodo,
 )
+from .clientes_service import montar_estatisticas_clientes, montar_links_campanha
 
 
 def _params_gestor(request):
@@ -120,5 +121,56 @@ def api_gestor_vendas(request):
             limite=limite,
         )
         return Response(data)
+    except (GestorAcessoNegado, ValueError) as exc:
+        return _handle_gestor_error(exc)
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def api_gestor_clientes(request):
+    if not usuario_pode_acessar_gestor(request.user):
+        return Response(
+            {'erro': 'Sem permissão para o painel gestor.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    p = _params_gestor(request)
+    try:
+        lojas_alvo, loja_id_resolvido = resolver_lojas_alvo(request.user, p['loja_id'])
+        stats = montar_estatisticas_clientes(lojas_alvo)
+        stats['loja_id'] = loja_id_resolvido
+        return Response(stats)
+    except (GestorAcessoNegado, ValueError) as exc:
+        return _handle_gestor_error(exc)
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def api_gestor_campanha(request):
+    if not usuario_pode_acessar_gestor(request.user):
+        return Response(
+            {'erro': 'Sem permissão para o painel gestor.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    publico = request.GET.get('publico', 'ativos')
+    if publico not in ('ativos', 'inativos'):
+        return Response({'erro': 'publico deve ser ativos ou inativos'}, status=400)
+    try:
+        lojas_alvo, loja_id_resolvido = resolver_lojas_alvo(
+            request.user, request.GET.get('loja_id', 'todas')
+        )
+        if lojas_alvo.count() != 1:
+            return Response({'erro': 'Selecione uma loja específica para campanha.'}, status=400)
+        loja = lojas_alvo.first()
+        desconto = request.GET.get('desconto')
+        desconto_val = float(desconto) if desconto else None
+        links = montar_links_campanha(loja, publico=publico, desconto_pct=desconto_val)
+        return Response({
+            'loja_id': loja_id_resolvido,
+            'publico': publico,
+            'desconto': desconto_val or float(loja.campanha_desconto_pct or 10),
+            'links': links,
+        })
     except (GestorAcessoNegado, ValueError) as exc:
         return _handle_gestor_error(exc)

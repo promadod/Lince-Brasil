@@ -8,6 +8,7 @@ from django.db.models import Sum, Count
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 
+from .recompra_service import montar_ranking_recompra
 from .models import (
     Venda,
     ItemEstoque,
@@ -170,9 +171,58 @@ def montar_por_pagamento(lojas_alvo, data_ini, data_fim):
             'nome': item.get('nome', item.get('codigo', '')),
             'total': float(item.get('total', 0) or 0),
             'qtd': item.get('qtd', 0),
+            'cor': item.get('cor', '#9c27b0'),
+            'icone': item.get('icone', 'fa-wallet'),
         }
         for item in lista
     ], float(total_geral or 0)
+
+
+def montar_ranking_entregadores(lojas_alvo, data_ini, data_fim, limite=10):
+    rows = (
+        _vendas_periodo(lojas_alvo, data_ini, data_fim)
+        .filter(eh_entrega=True, entregador__isnull=False, status_entrega='ENTREGUE')
+        .values('entregador_id', 'entregador__first_name', 'entregador__username')
+        .annotate(qtd=Count('id'), total=Sum('total'))
+        .order_by('-qtd')[:limite]
+    )
+    return [
+        {
+            'entregador_id': r['entregador_id'],
+            'nome': (r['entregador__first_name'] or r['entregador__username'] or 'Motoboy'),
+            'qtd_entregas': r['qtd'],
+            'total_vendido': float(r['total'] or 0),
+        }
+        for r in rows
+    ]
+
+
+def montar_ranking_bairros(lojas_alvo, data_ini, data_fim, limite=10):
+    vendas = (
+        _vendas_periodo(lojas_alvo, data_ini, data_fim)
+        .filter(eh_entrega=True)
+        .select_related('cliente')
+    )
+    buckets = {}
+    for v in vendas:
+        bairro = 'Sem bairro'
+        if v.cliente and v.cliente.bairro:
+            bairro = v.cliente.bairro.strip() or 'Sem bairro'
+        elif v.endereco_entrega:
+            bairro = v.endereco_entrega.split(',')[-1].strip()[:80] or 'Sem bairro'
+        if bairro not in buckets:
+            buckets[bairro] = {'qtd': 0, 'total': 0.0}
+        buckets[bairro]['qtd'] += 1
+        buckets[bairro]['total'] += float(v.total or 0)
+
+    ranking = sorted(
+        [
+            {'bairro': nome, 'qtd_pedidos': dados['qtd'], 'total': round(dados['total'], 2)}
+            for nome, dados in buckets.items()
+        ],
+        key=lambda x: (-x['qtd_pedidos'], -x['total']),
+    )
+    return ranking[:limite]
 
 
 def montar_financeiro(lojas_alvo, data_ini, data_fim):
@@ -297,6 +347,9 @@ def montar_resumo_gestor(user, loja_id_param='todas', periodo='hoje', data_inici
         'grafico_7_dias': montar_grafico_dias(lojas_alvo, data_fim_res, dias=7),
         'por_loja': montar_por_loja(lojas_alvo, data_ini, data_fim_res),
         'por_pagamento': por_pagamento,
+        'ranking_entregadores': montar_ranking_entregadores(lojas_alvo, data_ini, data_fim_res),
+        'ranking_bairros': montar_ranking_bairros(lojas_alvo, data_ini, data_fim_res),
+        'ranking_recompra': montar_ranking_recompra(lojas_alvo, limite=15),
         'financeiro': montar_financeiro(lojas_alvo, data_ini, data_fim_res),
         'alertas': montar_alertas(lojas_alvo),
     }

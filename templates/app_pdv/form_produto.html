@@ -46,6 +46,12 @@
             {% if field.name == 'vende_vasilhame_vazio' %}
             <p class="hint">Marque para produtos que vendem botijão/galão <strong>vazio</strong>. A baixa será apenas no estoque de vazios (não altera o estoque cheio).</p>
             {% endif %}
+            {% if field.name == 'rastrear_recompra' %}
+            <p class="hint">Ative para exibir alertas de recompra no dashboard quando o cliente passar dos dias configurados.</p>
+            {% endif %}
+            {% if field.name == 'dias_recompra' %}
+            <p class="hint">Ex.: 5 dias para água, 30 dias para gás. Configure conforme o produto.</p>
+            {% endif %}
             {% if field.errors %}
                 <small style="color: #ff5555;">{{ field.errors }}</small>
             {% endif %}

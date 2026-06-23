@@ -139,6 +139,66 @@ class Loja(models.Model):
         help_text="Permite finalizar venda com 2 ou mais meios de liquidação (ex.: metade dinheiro, metade Pix)."
     )
 
+    # --- PLANO DE FIDELIDADE ---
+    fidelidade_ativa = models.BooleanField(
+        default=False,
+        verbose_name="Ativar plano de fidelidade?",
+    )
+    FIDELIDADE_TIPO_META = [
+        ('PRODUTOS', 'Por quantidade de produtos'),
+        ('PONTOS', 'Por valor acumulado (pontos)'),
+    ]
+    fidelidade_tipo_meta = models.CharField(
+        max_length=20, choices=FIDELIDADE_TIPO_META, default='PRODUTOS',
+        verbose_name="Tipo de meta da promoção",
+    )
+    fidelidade_meta = models.DecimalField(
+        max_digits=10, decimal_places=2, default=10,
+        verbose_name="Meta para ativar promoção (qtd produtos ou pontos)",
+    )
+    fidelidade_desconto_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, default=5.00,
+        verbose_name="Desconto da promoção (%)",
+    )
+
+    # --- WHATSAPP AUTOMÁTICO (SaaS) ---
+    whatsapp_notificar_pedido = models.BooleanField(
+        default=False,
+        verbose_name="Notificar WhatsApp da empresa em novos pedidos?",
+    )
+    whatsapp_numero_empresa = models.CharField(
+        max_length=20, blank=True, default='',
+        verbose_name="WhatsApp da empresa (novos pedidos)",
+    )
+    whatsapp_msg_novo_pedido = models.TextField(
+        blank=True, default='',
+        verbose_name="Mensagem automática — novo pedido (empresa)",
+        help_text="Placeholders: {pedido}, {cliente}, {telefone}, {whatsapp}, {endereco}, {pagamento}, {itens}, {total}, {obs}",
+    )
+    whatsapp_msg_saiu_entrega = models.TextField(
+        blank=True, default='Olá {cliente}! Seu pedido #{pedido} saiu para entrega. Em breve chegaremos!',
+        verbose_name="Mensagem — motoboy saiu para entrega (cliente)",
+    )
+    whatsapp_msg_entrega_concluida = models.TextField(
+        blank=True, default='Olá {cliente}! Seu pedido #{pedido} foi entregue. Obrigado pela preferência!',
+        verbose_name="Mensagem — entrega concluída (cliente)",
+    )
+
+    # --- CAMPANHAS DE CLIENTES ---
+    msg_campanha_ativos = models.TextField(
+        blank=True, default='',
+        verbose_name="Mensagem para clientes ativos (30 dias)",
+        help_text="Placeholders: {cliente}, {bairro}, {desconto}",
+    )
+    msg_campanha_inativos = models.TextField(
+        blank=True, default='',
+        verbose_name="Mensagem para clientes inativos (60+ dias)",
+    )
+    campanha_desconto_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, default=10.00,
+        verbose_name="Desconto sugerido nas campanhas (%)",
+    )
+
     # --- CAMPOS DO SAAS (ASSINATURA) ---
     STATUS_ASSINATURA = [
         ('ATIVO', 'Ativo - Acesso Liberado'),
@@ -473,6 +533,21 @@ class Produto(models.Model):
         verbose_name="Vende vasilhame vazio",
         help_text="Produto de venda de botijão/galão vazio. Baixa apenas o estoque de vazios.",
     )
+    rastrear_recompra = models.BooleanField(
+        default=False,
+        verbose_name="Rastrear recompra deste produto?",
+        help_text="Exibe alerta no dashboard quando o cliente passar dos dias configurados sem comprar.",
+    )
+    dias_recompra = models.IntegerField(
+        null=True, blank=True,
+        verbose_name="Dias sem compra para alerta",
+        help_text="Ex.: 5 para água, 30 para gás. Deixe vazio para não rastrear.",
+    )
+    mensagem_recompra = models.TextField(
+        blank=True, default='Olá {cliente}, sua {produto} está acabando. Gostaria de fazer um novo pedido?',
+        verbose_name="Mensagem WhatsApp de recompra",
+        help_text="Placeholders: {cliente}, {produto}, {dias}",
+    )
 
     def baixa_apenas_vasilhame_vazio(self):
         return produto_baixa_apenas_vasilhame_vazio(self)
@@ -536,6 +611,19 @@ class Cliente(models.Model):
     telefone = models.CharField(max_length=20, blank=True, null=True)
     whatsapp = models.CharField(max_length=20, blank=True, null=True)
     endereco = models.TextField(blank=True, null=True)
+    bairro = models.CharField(max_length=100, blank=True, null=True, verbose_name="Bairro")
+    pontos_fidelidade = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name="Pontos de fidelidade acumulados",
+    )
+    progresso_fidelidade = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name="Progresso até próxima promoção",
+    )
+    promocao_fidelidade_ativa = models.BooleanField(
+        default=False,
+        verbose_name="Promoção de fidelidade disponível?",
+    )
     
     def __str__(self): return self.nome
 
@@ -801,21 +889,42 @@ def _adicionar_valor_bucket(buckets, key, forma, multi_loja, valor, qtd=0):
     buckets[key]['qtd'] += qtd
 
 
+def _ref_forma_pagamento_venda(venda, formas_map, meio_liquidacao=None):
+    """Prioriza tipo de lançamento avulso/customizado sobre meio de liquidação padrão."""
+    lid = venda.loja_id
+    fp = venda.forma_pagamento
+    if fp:
+        ref_fp = formas_map.get((lid, fp))
+        if ref_fp:
+            _, forma = ref_fp
+            if not forma.eh_sistema:
+                return ref_fp
+    if meio_liquidacao:
+        ref_ml = formas_map.get((lid, meio_liquidacao))
+        if ref_ml:
+            return ref_ml
+    if fp:
+        return formas_map.get((lid, fp))
+    return None
+
+
 def montar_resumo_pagamentos_loja(loja, vendas_qs):
     formas = FormaPagamentoLoja.objects.filter(loja=loja, ativo=True).order_by('ordem', 'nome')
     buckets = {}
-    formas_por_codigo = {f.codigo: f for f in formas}
+    formas_map = {(f.loja_id, f.codigo): (f.codigo, f) for f in formas}
 
     for venda in vendas_qs.select_related('loja').prefetch_related('liquidacoes'):
         if venda.liquidacoes.exists():
             for liq in venda.liquidacoes.all():
-                forma = formas_por_codigo.get(liq.meio_liquidacao) or formas_por_codigo.get(venda.forma_pagamento)
-                if forma:
-                    _adicionar_valor_bucket(buckets, forma.codigo, forma, False, liq.valor)
+                ref = _ref_forma_pagamento_venda(venda, formas_map, liq.meio_liquidacao)
+                if ref:
+                    key, forma = ref
+                    _adicionar_valor_bucket(buckets, key, forma, False, liq.valor)
         else:
-            forma = formas_por_codigo.get(venda.forma_pagamento)
-            if forma:
-                _adicionar_valor_bucket(buckets, forma.codigo, forma, False, venda.total or 0)
+            ref = _ref_forma_pagamento_venda(venda, formas_map)
+            if ref:
+                key, forma = ref
+                _adicionar_valor_bucket(buckets, key, forma, False, venda.total or 0)
 
     return [
         {
@@ -843,14 +952,12 @@ def montar_relatorio_pagamentos(lojas_alvo, vendas_periodo, multi_loja=False):
     for venda in vendas:
         if venda.liquidacoes.exists():
             for liq in venda.liquidacoes.all():
-                ref = formas_map.get((venda.loja_id, liq.meio_liquidacao))
-                if not ref:
-                    ref = formas_map.get((venda.loja_id, venda.forma_pagamento))
+                ref = _ref_forma_pagamento_venda(venda, formas_map, liq.meio_liquidacao)
                 if ref:
                     key, forma = ref
                     _adicionar_valor_bucket(buckets, key, forma, multi_loja, liq.valor, qtd=1)
         else:
-            ref = formas_map.get((venda.loja_id, venda.forma_pagamento))
+            ref = _ref_forma_pagamento_venda(venda, formas_map)
             if ref:
                 key, forma = ref
                 _adicionar_valor_bucket(buckets, key, forma, multi_loja, venda.total or 0, qtd=1)
@@ -1258,3 +1365,10 @@ def blindagem_exclusao_item(sender, instance, **kwargs):
         qtd_decimal = Decimal(str(instance.quantidade))
         devolver = qtd_decimal * instance.produto.quantidade_baixa
         aplicar_devolucao_item_venda(instance, devolver)
+
+
+@receiver(post_save, sender=Venda)
+def processar_fidelidade_ao_finalizar(sender, instance, created, **kwargs):
+    if instance.status == 'FINALIZADO' and instance.cliente_id:
+        from .fidelidade_service import registrar_progresso_fidelidade
+        registrar_progresso_fidelidade(instance)

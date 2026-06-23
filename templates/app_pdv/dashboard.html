@@ -149,6 +149,53 @@
     </div>
     
 
+    {% if ranking_recompra %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card card-custom">
+                <div class="card-body">
+                    <h3 class="text-white fw-bold mb-3">
+                        <i class="fas fa-redo me-2" style="color: var(--cor-tema);"></i>
+                        Recompra — Clientes sem comprar
+                    </h3>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Cliente</th>
+                                    <th>Produto</th>
+                                    <th>Dias sem compra</th>
+                                    <th>Última compra</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in ranking_recompra %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ item.cliente }} <small class="text-muted">({{ item.bairro }})</small></td>
+                                    <td>{{ item.produto }}</td>
+                                    <td><span class="badge bg-warning text-dark">{{ item.dias_sem_compra }} dias</span></td>
+                                    <td>{{ item.ultima_compra }}</td>
+                                    <td>
+                                        {% if item.whatsapp_link %}
+                                        <a href="{{ item.whatsapp_link }}" target="_blank" class="btn btn-sm" style="background:#25D366; color:#fff;">
+                                            <i class="fab fa-whatsapp"></i> Chamar
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="row">
         
         <div class="col-lg-8 mb-4">

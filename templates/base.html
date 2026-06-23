@@ -75,6 +75,8 @@
             <a href="{% url 'nova_venda' %}"><i class="fas fa-shopping-cart"></i> Vender</a>
             <a href="{% url 'lista_vendas' %}"><i class="fas fa-history"></i> Histórico de Vendas</a>
             <a href="{% url 'lista_clientes' %}"><i class="fas fa-users"></i> Clientes</a>
+            <a href="{% url 'config_fidelidade' %}"><i class="fas fa-gift"></i> Fidelidade</a>
+            <a href="{% url 'config_whatsapp' %}"><i class="fab fa-whatsapp"></i> WhatsApp</a>
             {% endif %}
 
             {% if request.user.is_superuser or request.user.perfil.perm_caixa %}
