@@ -1102,6 +1102,62 @@ class PagamentoFiado(models.Model):
         return f"R$ {self.valor} — Venda #{self.venda_id}"
 
 
+class ParcelaFiadoAgendada(models.Model):
+    """Parcela de recebimento agendada para saldo devedor de venda fiado."""
+
+    STATUS_CHOICES = [
+        ('AGENDADO', 'Agendado'),
+        ('PAGO', 'Pago'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+
+    loja = models.ForeignKey(Loja, on_delete=models.CASCADE)
+    venda = models.ForeignKey(
+        'Venda', on_delete=models.CASCADE, related_name='parcelas_fiado_agendadas',
+    )
+    cliente = models.ForeignKey(
+        Cliente, on_delete=models.CASCADE, related_name='parcelas_fiado_agendadas',
+    )
+    valor = models.DecimalField(max_digits=10, decimal_places=2)
+    data_vencimento = models.DateField(verbose_name='Vencimento')
+    data_entrada = models.DateTimeField(auto_now_add=True, verbose_name='Data de agendamento')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='AGENDADO')
+    pagamento = models.ForeignKey(
+        PagamentoFiado, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='parcela_agendada',
+    )
+    observacao = models.CharField(max_length=200, blank=True, null=True)
+    criado_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='parcelas_fiado_criadas',
+    )
+
+    class Meta:
+        verbose_name = 'Parcela Fiado Agendada'
+        verbose_name_plural = 'Parcelas Fiado Agendadas'
+        ordering = ['data_vencimento', 'id']
+
+    def __str__(self):
+        return f"Parcela #{self.id} — Venda #{self.venda_id} — R$ {self.valor}"
+
+    @property
+    def esta_atrasada(self):
+        if self.status != 'AGENDADO':
+            return False
+        return self.data_vencimento < timezone.localdate()
+
+
+def total_parcelas_agendadas_venda(venda):
+    from django.db.models import Sum
+    return venda.parcelas_fiado_agendadas.filter(status='AGENDADO').aggregate(
+        total=Sum('valor')
+    )['total'] or Decimal('0')
+
+
+def saldo_agendavel_venda(venda):
+    return max(venda.saldo_devedor - total_parcelas_agendadas_venda(venda), Decimal('0'))
+
+
 class LiquidacaoVenda(models.Model):
     loja = models.ForeignKey(Loja, on_delete=models.CASCADE)
     venda = models.ForeignKey('Venda', on_delete=models.CASCADE, related_name='liquidacoes')

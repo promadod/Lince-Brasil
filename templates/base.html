@@ -112,6 +112,11 @@
     <div class="content">
         
         <div class="header-top">
+            {% if user.is_authenticated %}
+            <button type="button" id="btn-tela-cheia" class="btn-tela-cheia" title="Tela cheia (oculta menu)">
+                <i class="fas fa-expand"></i>
+            </button>
+            {% endif %}
             {% if user.is_authenticated and saas_alerta %}
                 <a href="{% url 'minha_assinatura' %}" class="saas-warning-text" title="Clique para regularizar">
                     <i class="fas fa-exclamation-circle"></i>
@@ -137,6 +142,51 @@
         {% block content %}
         {% endblock %}
     </div>
+
+    {% if user.is_authenticated %}
+    <script>
+    (function() {
+        const btn = document.getElementById('btn-tela-cheia');
+        const body = document.body;
+        const sidebar = document.querySelector('.sidebar');
+        const icon = btn ? btn.querySelector('i') : null;
+
+        function aplicarModoCheio(ativo) {
+            body.classList.toggle('modo-tela-cheia', ativo);
+            if (sidebar) sidebar.classList.toggle('sidebar-oculta', ativo);
+            if (icon) {
+                icon.className = ativo ? 'fas fa-compress' : 'fas fa-expand';
+            }
+            if (btn) {
+                btn.title = ativo ? 'Sair da tela cheia' : 'Tela cheia (oculta menu)';
+            }
+            try { localStorage.setItem('pdv_tela_cheia', ativo ? '1' : '0'); } catch (e) {}
+        }
+
+        if (localStorage.getItem('pdv_tela_cheia') === '1') {
+            aplicarModoCheio(true);
+        }
+
+        if (btn) {
+            btn.addEventListener('click', function() {
+                const ativo = !body.classList.contains('modo-tela-cheia');
+                aplicarModoCheio(ativo);
+                if (ativo && document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen().catch(function() {});
+                } else if (!ativo && document.fullscreenElement && document.exitFullscreen) {
+                    document.exitFullscreen().catch(function() {});
+                }
+            });
+        }
+
+        document.addEventListener('fullscreenchange', function() {
+            if (!document.fullscreenElement && body.classList.contains('modo-tela-cheia')) {
+                aplicarModoCheio(false);
+            }
+        });
+    })();
+    </script>
+    {% endif %}
 
 </body>
 </html>

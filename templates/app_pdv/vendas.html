@@ -4,6 +4,46 @@
 
 {% block content %}
 
+<style>
+.pdv-cliente-row { display: flex; gap: 8px; align-items: stretch; }
+.pdv-cliente-row input { flex: 1; min-width: 0; }
+.btn-novo-cliente {
+    background: var(--accent, #15a0a5);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    padding: 0 14px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.btn-novo-cliente:hover { filter: brightness(1.1); }
+.modal-cliente-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+.modal-cliente-overlay.aberto { display: flex; }
+.modal-cliente-box {
+    background: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 10px;
+    padding: 24px;
+    width: 100%;
+    max-width: 420px;
+    color: #eee;
+}
+.modal-cliente-box h3 { margin: 0 0 16px; color: var(--accent, #15a0a5); }
+.modal-cliente-box label { display: block; margin: 10px 0 4px; font-size: 0.9em; }
+.modal-cliente-box input { width: 100%; box-sizing: border-box; }
+.modal-cliente-acoes { display: flex; gap: 10px; margin-top: 18px; justify-content: flex-end; }
+</style>
+
 <input type="hidden" id="cliente_id_hidden">
 <input type="hidden" id="produto_id_hidden">
 <input type="hidden" id="venda_id_edicao" value="{{ venda_aberta.id|default:'' }}">
@@ -16,6 +56,27 @@
     <option value="{{ cliente.nome }}" data-id="{{ cliente.id }}"></option>
     {% endfor %}
 </datalist>
+
+<div id="modal-novo-cliente" class="modal-cliente-overlay" role="dialog" aria-labelledby="modal-cliente-titulo">
+    <div class="modal-cliente-box">
+        <h3 id="modal-cliente-titulo"><i class="fas fa-user-plus"></i> Novo Cliente</h3>
+        <label for="modal_cliente_nome">Nome *</label>
+        <input type="text" id="modal_cliente_nome" class="form-control" autocomplete="off">
+        <label for="modal_cliente_whatsapp">WhatsApp</label>
+        <input type="text" id="modal_cliente_whatsapp" class="form-control" placeholder="(00) 00000-0000">
+        <label for="modal_cliente_endereco">Endereço</label>
+        <input type="text" id="modal_cliente_endereco" class="form-control">
+        <label for="modal_cliente_bairro">Bairro</label>
+        <input type="text" id="modal_cliente_bairro" class="form-control">
+        <div class="modal-cliente-acoes">
+            <button type="button" class="btn" id="btn-modal-cliente-cancelar" style="background:#555;color:#fff;">Cancelar</button>
+            <button type="button" class="btn" id="btn-modal-cliente-salvar" style="background:var(--accent,#15a0a5);color:#000;">
+                <i class="fas fa-save"></i> Salvar
+            </button>
+        </div>
+    </div>
+</div>
+
 <datalist id="lista_produtos">
     {% for produto in produtos %}
     <option value="{{ produto.nome_venda }}"
@@ -42,7 +103,12 @@
             <div class="card">
                 <h3>Dados da Venda</h3>
                 <label for="cliente_input">Cliente</label>
-                <input type="text" id="cliente_input" list="lista_clientes" placeholder="Busque o cliente..." onchange="buscarClienteID()" autocomplete="off">
+                <div class="pdv-cliente-row">
+                    <input type="text" id="cliente_input" list="lista_clientes" placeholder="Busque o cliente..." onchange="buscarClienteID()" autocomplete="off">
+                    <button type="button" id="btn-novo-cliente" class="btn btn-novo-cliente" title="Cadastrar cliente">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
 
                 <label for="tipo_venda">Tipo</label>
                 <select id="tipo_venda">
@@ -405,17 +471,16 @@
             checkFinalizarDepois.disabled = false;
         }
         if (ativo) {
-            document.getElementById('checkEntrega').checked = false;
-            document.getElementById('inputTaxa').value = '0.00';
-            document.getElementById('inputTaxa').disabled = true;
             if (checkPagamentoDividido) {
                 checkPagamentoDividido.checked = false;
                 checkPagamentoDividido.disabled = true;
                 togglePagamentoDividido();
             }
+            verificarEntregaAutomatica();
             calcularTotalGeral();
         } else if (checkPagamentoDividido) {
             checkPagamentoDividido.disabled = false;
+            verificarEntregaAutomatica();
         }
     }
     if (checkVendaFiado) {
@@ -465,6 +530,77 @@
             clienteInput.addEventListener('input', verificarEntregaAutomatica);
             clienteInput.addEventListener('change', verificarEntregaAutomatica);
         }
+
+        const modalCliente = document.getElementById('modal-novo-cliente');
+        const btnNovoCliente = document.getElementById('btn-novo-cliente');
+        const btnSalvarCliente = document.getElementById('btn-modal-cliente-salvar');
+        const btnCancelarCliente = document.getElementById('btn-modal-cliente-cancelar');
+
+        function abrirModalCliente() {
+            document.getElementById('modal_cliente_nome').value = '';
+            document.getElementById('modal_cliente_whatsapp').value = '';
+            document.getElementById('modal_cliente_endereco').value = '';
+            document.getElementById('modal_cliente_bairro').value = '';
+            modalCliente.classList.add('aberto');
+            document.getElementById('modal_cliente_nome').focus();
+        }
+
+        function fecharModalCliente() {
+            modalCliente.classList.remove('aberto');
+        }
+
+        if (btnNovoCliente) btnNovoCliente.addEventListener('click', abrirModalCliente);
+        if (btnCancelarCliente) btnCancelarCliente.addEventListener('click', fecharModalCliente);
+        if (modalCliente) {
+            modalCliente.addEventListener('click', function(e) {
+                if (e.target === modalCliente) fecharModalCliente();
+            });
+        }
+
+        if (btnSalvarCliente) {
+            btnSalvarCliente.addEventListener('click', async function() {
+                const nome = document.getElementById('modal_cliente_nome').value.trim();
+                if (!nome) {
+                    alert('Informe o nome do cliente.');
+                    return;
+                }
+                btnSalvarCliente.disabled = true;
+                try {
+                    const resp = await fetch('{% url "api_criar_cliente_pdv" %}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({
+                            nome: nome,
+                            whatsapp: document.getElementById('modal_cliente_whatsapp').value.trim(),
+                            endereco: document.getElementById('modal_cliente_endereco').value.trim(),
+                            bairro: document.getElementById('modal_cliente_bairro').value.trim()
+                        })
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) {
+                        alert(data.erro || 'Erro ao cadastrar cliente.');
+                        return;
+                    }
+                    const datalist = document.getElementById('lista_clientes');
+                    const opt = document.createElement('option');
+                    opt.value = data.nome;
+                    opt.setAttribute('data-id', data.id);
+                    datalist.appendChild(opt);
+                    document.getElementById('cliente_input').value = data.nome;
+                    document.getElementById('cliente_id_hidden').value = data.id;
+                    verificarEntregaAutomatica();
+                    fecharModalCliente();
+                } catch (err) {
+                    alert('Falha na comunicação com o servidor.');
+                } finally {
+                    btnSalvarCliente.disabled = false;
+                }
+            });
+        }
+
         const inputTaxa = document.getElementById('inputTaxa');
         if (inputTaxa) {
             inputTaxa.addEventListener('input', function() {
@@ -518,12 +654,35 @@
         const nome = document.getElementById('cliente_input').value.trim();
         const checkEntrega = document.getElementById('checkEntrega');
         const inputTaxa = document.getElementById('inputTaxa');
+        const isFiado = checkVendaFiado && checkVendaFiado.checked;
+        const clienteId = document.getElementById('cliente_id_hidden').value;
 
         if (nome !== ultimoClienteInput) {
             if (!clienteExigeEntrega()) {
                 taxaEntregaManual = false;
             }
             ultimoClienteInput = nome;
+        }
+
+        if (isFiado) {
+            checkEntrega.checked = false;
+            if (clienteId) {
+                inputTaxa.disabled = false;
+                if (
+                    !skipTaxaAutoFill &&
+                    !taxaEntregaManual &&
+                    obterTaxaEntrega() === 0 &&
+                    TAXA_PADRAO_LOJA > 0
+                ) {
+                    inputTaxa.value = TAXA_PADRAO_LOJA.toFixed(2);
+                }
+            } else {
+                inputTaxa.value = '0.00';
+                inputTaxa.disabled = true;
+                taxaEntregaManual = false;
+            }
+            calcularTotalGeral();
+            return;
         }
 
         if (clienteExigeEntrega()) {
@@ -736,10 +895,12 @@
 
         let isEntrega = false;
         if (isFiado) {
+            const clienteId = document.getElementById('cliente_id_hidden').value;
+            if (clienteId) {
+                document.getElementById('inputTaxa').disabled = false;
+            }
+            isEntrega = false;
             document.getElementById('checkEntrega').checked = false;
-            document.getElementById('inputTaxa').value = '0.00';
-            document.getElementById('inputTaxa').disabled = true;
-            calcularTotalGeral();
         } else {
             verificarEntregaAutomatica({ skipTaxaAutoFill: true });
             isEntrega = clienteExigeEntrega() || document.getElementById('checkEntrega').checked;
@@ -808,7 +969,7 @@
             forma_pagamento: document.getElementById('selectPagamento').value,
             meio_liquidacao: document.getElementById('selectMeioLiquidacao').value,
             pagamento_dividido: isDividido,
-            taxa_entrega: isFiado ? 0 : obterTaxaEntrega(),
+            taxa_entrega: obterTaxaEntrega(),
             total_final: totalVendaFinal,
             troco_para: valorTroco,
             eh_fiado: isFiado,

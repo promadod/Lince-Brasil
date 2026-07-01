@@ -69,11 +69,12 @@ class Corrida(models.Model):
                     venda.status = 'FINALIZADO'   # <--- É ESSA LINHA QUE TIRA O CARD DA TORRE!
                     venda.save()
                     
-                # Se o motorista rejeitar ou cancelar a corrida:
+                # Se o motorista rejeitar ou cancelar a corrida (passageiro):
                 elif self.status == 'CANCELADO':
                     venda.status_entrega = 'PENDENTE'
-                    venda.status = 'EM_PREPARACAO' # <--- Devolve o card pra coluna do meio
-                    venda.save()
+                    venda.status = 'EM_PREPARACAO'
+                    venda.entregador = None
+                    venda.save(update_fields=['status_entrega', 'status', 'entregador'])
                     
             except Exception as e:
                 print(f"Erro na sincronização reversa: {e}")

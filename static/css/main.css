@@ -93,6 +93,54 @@ body {
     flex: 1;
     min-width: 0;
     max-width: 100%;
+    transition: margin-left 0.25s ease, width 0.25s ease, padding 0.25s ease;
+}
+
+/* --- TELA CHEIA (oculta sidebar + mais área útil) --- */
+.header-top {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    margin-bottom: 10px;
+}
+
+.btn-tela-cheia {
+    background: rgba(21, 160, 165, 0.15);
+    border: 1px solid rgba(21, 160, 165, 0.45);
+    color: var(--accent);
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 1rem;
+    margin-right: auto;
+    transition: background 0.2s;
+}
+
+.btn-tela-cheia:hover {
+    background: rgba(21, 160, 165, 0.3);
+}
+
+body.modo-tela-cheia .sidebar,
+.sidebar.sidebar-oculta {
+    transform: translateX(-100%);
+    pointer-events: none;
+}
+
+body.modo-tela-cheia .content {
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding: 16px 20px !important;
+}
+
+body.modo-tela-cheia .header-top {
+    padding: 6px 12px;
+    margin-bottom: 6px;
+}
+
+.sidebar {
+    transition: transform 0.25s ease;
 }
 
 /* --- CARDS E CONTAINERS --- */

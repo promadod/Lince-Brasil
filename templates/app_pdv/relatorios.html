@@ -35,6 +35,7 @@
                 <option value="fechamentos" {% if tipo_relatorio == 'fechamentos' %}selected{% endif %}>Histórico de Fechamentos</option>
                 <option value="entregadores" {% if tipo_relatorio == 'entregadores' %}selected{% endif %}>Performance Entregadores</option>
                 <option value="fiado" {% if tipo_relatorio == 'fiado' %}selected{% endif %}>Vendas Fiado (Pendentes)</option>
+                <option value="fiado_agendamento" {% if tipo_relatorio == 'fiado_agendamento' %}selected{% endif %}>Agendamento Parcelas Fiado</option>
                 <option value="fiado_quitado" {% if tipo_relatorio == 'fiado_quitado' %}selected{% endif %}>Vendas Fiado Quitadas</option>
             </select>
         </div>
@@ -334,6 +335,12 @@ function toggleMotoboy(id) {
     <small style="color: #666;">Ative em Admin → Lojas → "Habilitar Vendas Fiado?"</small>
 </div>
 {% else %}
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+    <a href="{% url 'relatorios' %}?tipo_relatorio=fiado_agendamento&data_inicio={{ data_inicio }}&data_fim={{ data_fim }}&loja_id={{ loja_selecionada_id }}" class="btn" style="background: #15a0a5; color: #fff;">
+        <i class="fas fa-calendar-alt"></i> Central de Agendamento
+    </a>
+</div>
+
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px;">
     <div class="card" style="border-top: 4px solid #ff9800; text-align: center;">
         <small>Vendas Fiado Abertas</small>
@@ -355,61 +362,419 @@ function toggleMotoboy(id) {
 
 <div class="card">
     <h3><i class="fas fa-file-invoice-dollar"></i> Vendas Fiado — Pagamento Pendente</h3>
-    <table style="width: 100%; color: #eee; border-collapse: collapse; margin-top: 15px;">
+    <p style="color: #aaa; font-size: 0.9em; margin-bottom: 12px;">
+        Agrupe por cliente para unificar recebimentos. Parcelas agendadas aparecem com status de vencimento.
+    </p>
+
+    {% for grupo in fiado.por_cliente %}
+    <div class="fiado-grupo-cliente" style="border: 1px solid #444; border-radius: 8px; margin-bottom: 15px; overflow: hidden;">
+        <div class="fiado-grupo-header" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; background: #252525; cursor: pointer;"
+             onclick="toggleFiadoGrupo('grupo-{{ grupo.chave }}')">
+            <button type="button" class="btn" style="padding: 4px 10px; background: #333; color: #fff;" title="Expandir / recolher">
+                <i class="fas fa-chevron-down" id="icon-grupo-{{ grupo.chave }}"></i>
+            </button>
+            <strong style="flex: 1;">{{ grupo.cliente }}</strong>
+            {% if grupo.tem_parcela_atrasada %}
+            <span style="background: #cf6679; color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;">Atrasada</span>
+            {% endif %}
+            <span style="color: #cf6679; font-weight: bold;">Saldo: R$ {{ grupo.saldo_total|floatformat:2 }}</span>
+            <small style="color: #888;">{{ grupo.qtd_vendas }} venda(s)</small>
+        </div>
+
+        <div id="grupo-{{ grupo.chave }}" class="fiado-grupo-body" style="display: none; padding: 10px;">
+            <form method="POST" action="{% url 'registrar_pagamento_fiado_unificado' %}" id="form-unif-{{ grupo.chave }}"
+                  style="margin-bottom: 12px; padding: 12px; background: rgba(255,152,0,0.08); border-radius: 8px; border: 1px solid #ff980044; display: none;">
+                {% csrf_token %}
+                <input type="hidden" name="tipo_relatorio" value="fiado">
+                <input type="hidden" name="data_inicio" value="{{ data_inicio }}">
+                <input type="hidden" name="data_fim" value="{{ data_fim }}">
+                <input type="hidden" name="loja_id" value="{{ loja_selecionada_id }}">
+                {% for item in grupo.vendas %}
+                <input type="checkbox" class="chk-venda-unificar chk-grupo-{{ grupo.chave }}" name="venda_ids" value="{{ item.venda_id }}" checked style="display:none;">
+                {% endfor %}
+                <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+                    <span style="color: #cf6679; font-weight: bold;">Saldo unificado: R$ {{ grupo.saldo_total|floatformat:2 }}</span>
+                    <input type="number" name="valor" step="0.01" min="0.01" max="{{ grupo.saldo_total }}" placeholder="Valor R$" class="form-control" style="width: 110px;" required>
+                    <select name="meio_liquidacao" class="form-control" style="width: 110px;">
+                        <option value="DINHEIRO">Dinheiro</option>
+                        <option value="PIX">Pix</option>
+                        <option value="CREDITO">Crédito</option>
+                        <option value="DEBITO">Débito</option>
+                    </select>
+                    <button type="submit" class="btn" style="background: #ff9800; color: #000;">
+                        <i class="fas fa-check"></i> Receber unificado
+                    </button>
+                </div>
+            </form>
+
+            <div style="margin-bottom: 10px;">
+                <label style="display: flex; align-items: center; gap: 6px; font-weight: bold; color: #ff9800; cursor: pointer;">
+                    <input type="checkbox" class="chk-unificar-master" data-grupo="{{ grupo.chave }}" onchange="toggleUnificarGrupo('{{ grupo.chave }}', this.checked)">
+                    Unificar parcelas deste cliente para recebimento
+                </label>
+            </div>
+
+            <table style="width: 100%; color: #eee; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #444; text-align: left; font-size: 0.9em;">
+                        <th>Cód.</th>
+                        <th>Entrada</th>
+                        <th>Cliente</th>
+                        <th>Itens</th>
+                        <th>Total</th>
+                        <th>Pago</th>
+                        <th>Saldo</th>
+                        <th>Parcelas</th>
+                        <th>Receber</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in grupo.vendas %}
+                    <tr style="border-bottom: 1px solid #333; {% if item.tem_parcela_atrasada %}background: rgba(207,102,121,0.08);{% endif %}">
+                        <td><strong>#{{ item.venda_id }}</strong></td>
+                        <td>{{ item.data }}</td>
+                        <td>{{ item.cliente }}</td>
+                        <td style="font-size: 0.85em; color: #aaa; max-width: 180px;">{{ item.itens_resumo }}</td>
+                        <td>R$ {{ item.total|floatformat:2 }}</td>
+                        <td style="color: #03dac6;">R$ {{ item.pago|floatformat:2 }}</td>
+                        <td style="color: #cf6679; font-weight: bold;">R$ {{ item.saldo|floatformat:2 }}</td>
+                        <td style="font-size: 0.8em;">
+                            {% if item.parcelas %}
+                                {% for p in item.parcelas %}
+                                <div style="{% if p.atrasada %}color:#cf6679;{% else %}color:#aaa;{% endif %}">
+                                    {{ p.vencimento }} — R$ {{ p.valor|floatformat:2 }} ({{ p.status_label }})
+                                </div>
+                                {% endfor %}
+                            {% else %}—{% endif %}
+                        </td>
+                        <td>
+                            <form method="POST" action="{% url 'registrar_pagamento_fiado' item.venda_id %}?tipo_relatorio=fiado&data_inicio={{ data_inicio }}&data_fim={{ data_fim }}&loja_id={{ loja_selecionada_id }}"
+                                  style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
+                                {% csrf_token %}
+                                <input type="hidden" name="tipo_relatorio" value="fiado">
+                                <input type="hidden" name="data_inicio" value="{{ data_inicio }}">
+                                <input type="hidden" name="data_fim" value="{{ data_fim }}">
+                                <input type="hidden" name="loja_id" value="{{ loja_selecionada_id }}">
+                                <input type="number" name="valor" step="0.01" min="0.01" max="{{ item.saldo }}" placeholder="R$" required class="form-control" style="width: 80px; padding: 4px;">
+                                <select name="meio_liquidacao" class="form-control" style="width: 90px; padding: 4px;">
+                                    <option value="DINHEIRO">Dinheiro</option>
+                                    <option value="PIX">Pix</option>
+                                    <option value="CREDITO">Crédito</option>
+                                    <option value="DEBITO">Débito</option>
+                                </select>
+                                <button type="submit" class="btn" style="background: #ff9800; color: #000; padding: 4px 8px; font-size: 0.85em;">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% empty %}
+    <p style="text-align: center; padding: 25px; color: #888;">Nenhuma venda fiado pendente no período selecionado.</p>
+    {% endfor %}
+</div>
+
+<script>
+function toggleFiadoGrupo(id) {
+    const el = document.getElementById(id);
+    const icon = document.getElementById('icon-' + id);
+    if (!el) return;
+    const aberto = el.style.display !== 'none';
+    el.style.display = aberto ? 'none' : 'block';
+    if (icon) icon.className = aberto ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
+}
+function toggleUnificarGrupo(chave, ativo) {
+    const formUnif = document.getElementById('form-unif-' + chave);
+    if (formUnif) formUnif.style.display = ativo ? 'block' : 'none';
+    document.querySelectorAll('.fiado-grupo-body tr form').forEach(f => {
+        f.style.display = ativo ? 'none' : '';
+    });
+}
+</script>
+{% endif %}
+{% endif %}
+
+{% if tipo_relatorio == 'fiado_agendamento' %}
+<style>
+.btn-fiado-inline {
+    height: 42px;
+    padding: 0 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+    box-sizing: border-box;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.92em;
+}
+.form-agendar-fiado {
+    margin-top: 14px;
+    width: 100%;
+}
+.fiado-agendar-topo,
+.fiado-agendar-parcela {
+    display: grid;
+    grid-template-columns: 1fr minmax(160px, 220px);
+    grid-template-rows: auto auto;
+    column-gap: 16px;
+    row-gap: 6px;
+    align-items: center;
+    width: 100%;
+}
+.fiado-agendar-parcela {
+    grid-template-columns: 1fr 1fr auto;
+    margin-bottom: 12px;
+}
+.fiado-agendar-parcela.fiado-parcela-extra {
+    grid-template-columns: 1fr 1fr;
+    margin-top: 4px;
+}
+.fiado-agendar-topo {
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #333;
+}
+.fiado-agendar-topo .fiado-lbl-venda { grid-column: 1; grid-row: 1; }
+.fiado-agendar-topo .fiado-inp-venda { grid-column: 1; grid-row: 2; }
+.fiado-agendar-topo .fiado-lbl-saldo { grid-column: 2; grid-row: 1; }
+.fiado-agendar-topo .fiado-inp-saldo { grid-column: 2; grid-row: 2; }
+.fiado-agendar-parcela .fiado-lbl-valor { grid-column: 1; grid-row: 1; }
+.fiado-agendar-parcela .fiado-inp-valor { grid-column: 1; grid-row: 2; }
+.fiado-agendar-parcela .fiado-lbl-venc { grid-column: 2; grid-row: 1; }
+.fiado-agendar-parcela .fiado-inp-venc { grid-column: 2; grid-row: 2; }
+.fiado-agendar-parcela .fiado-acoes-parcela {
+    grid-column: 3;
+    grid-row: 2;
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+.form-agendar-fiado label,
+.fiado-agendar-topo label,
+.fiado-agendar-parcela label {
+    font-size: 0.9em;
+    line-height: 1.2;
+    margin: 0;
+}
+.form-agendar-fiado .form-control {
+    width: 100%;
+    height: 42px;
+    box-sizing: border-box;
+    margin: 0;
+}
+.fiado-parcelas-wrap {
+    width: 100%;
+}
+@media (max-width: 768px) {
+    .fiado-agendar-topo,
+    .fiado-agendar-parcela {
+        grid-template-columns: 1fr;
+    }
+    .fiado-agendar-topo .fiado-lbl-venda,
+    .fiado-agendar-topo .fiado-inp-venda,
+    .fiado-agendar-topo .fiado-lbl-saldo,
+    .fiado-agendar-topo .fiado-inp-saldo,
+    .fiado-agendar-parcela .fiado-lbl-valor,
+    .fiado-agendar-parcela .fiado-inp-valor,
+    .fiado-agendar-parcela .fiado-lbl-venc,
+    .fiado-agendar-parcela .fiado-inp-venc,
+    .fiado-agendar-parcela .fiado-acoes-parcela {
+        grid-column: 1;
+    }
+    .fiado-agendar-parcela .fiado-acoes-parcela {
+        flex-wrap: wrap;
+    }
+    .fiado-agendar-parcela .fiado-acoes-parcela .btn-fiado-inline {
+        flex: 1;
+        min-width: 140px;
+    }
+}
+.form-acao-parcela {
+    display: inline-flex;
+    gap: 4px;
+    align-items: stretch;
+    flex-wrap: wrap;
+}
+.form-acao-parcela-select {
+    width: 96px;
+    height: 34px;
+    padding: 4px 6px;
+    box-sizing: border-box;
+    font-size: 0.9em;
+}
+.form-acao-parcela-btn {
+    height: 34px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.9em;
+    line-height: 1;
+}
+</style>
+{% if not tem_fiado %}
+<div class="card" style="text-align: center; padding: 30px;">
+    <i class="fas fa-store-slash" style="font-size: 2em; color: #888; margin-bottom: 10px;"></i>
+    <p style="color: #aaa;">Nenhuma loja selecionada possui o fluxo de <strong>Vendas Fiado</strong> habilitado.</p>
+</div>
+{% else %}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px;">
+    <div class="card" style="text-align: center; border-top: 3px solid #15a0a5;">
+        <small>Vendas em aberto</small>
+        <h3>{{ fiado_agendamento.totais_vendas.qtd_vendas }}</h3>
+    </div>
+    <div class="card" style="text-align: center; border-top: 3px solid #cf6679;">
+        <small>Saldo devedor</small>
+        <h3 style="color:#cf6679;">R$ {{ fiado_agendamento.totais_vendas.total_devedor|floatformat:2 }}</h3>
+    </div>
+    <div class="card" style="text-align: center; border-top: 3px solid #ff9800;">
+        <small>Parcelas no período</small>
+        <h3>{{ fiado_agendamento.totais_parcelas.qtd }}</h3>
+    </div>
+    <div class="card" style="text-align: center; border-top: 3px solid #cf6679;">
+        <small>Atrasadas no período</small>
+        <h3 style="color:#cf6679;">R$ {{ fiado_agendamento.totais_parcelas.total_atrasado|floatformat:2 }}</h3>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+    <h3><i class="fas fa-plus-circle"></i> Agendar parcelas de recebimento</h3>
+    <form method="POST" action="{% url 'criar_parcelas_fiado_agendadas' %}" id="form-agendar-parcelas" class="form-agendar-fiado">
+        {% csrf_token %}
+        <input type="hidden" name="tipo_relatorio" value="fiado_agendamento">
+        <input type="hidden" name="data_inicio" value="{{ data_inicio }}">
+        <input type="hidden" name="data_fim" value="{{ data_fim }}">
+        <input type="hidden" name="loja_id" value="{{ loja_selecionada_id }}">
+
+        <div class="fiado-agendar-topo">
+            <label for="select-venda-agendar" class="fiado-lbl-venda">Venda (código)</label>
+            <select name="venda_id" id="select-venda-agendar" class="form-control fiado-inp-venda" required>
+                <option value="">— Selecione —</option>
+                {% for v in fiado_agendamento.vendas_abertas %}
+                <option value="{{ v.venda_id }}" data-saldo="{{ v.saldo_agendavel }}">
+                    #{{ v.venda_id }} — {{ v.cliente }} — Saldo agendável R$ {{ v.saldo_agendavel|floatformat:2 }}
+                </option>
+                {% endfor %}
+            </select>
+            <label for="saldo-agendavel-display" class="fiado-lbl-saldo">Saldo agendável</label>
+            <input type="text" id="saldo-agendavel-display" class="form-control fiado-inp-saldo" readonly value="—">
+        </div>
+
+        <div id="linhas-parcelas" class="fiado-parcelas-wrap">
+            <div class="fiado-agendar-parcela linha-parcela-principal">
+                <label class="fiado-lbl-valor">Valor R$</label>
+                <input type="number" name="parcela_valor" step="0.01" min="0.01" placeholder="0,00" class="form-control fiado-inp-valor">
+                <label class="fiado-lbl-venc">Vencimento</label>
+                <input type="date" name="parcela_vencimento" class="form-control fiado-inp-venc">
+                <div class="fiado-acoes-parcela">
+                    <button type="button" class="btn btn-fiado-inline" onclick="adicionarLinhaParcela()" style="background: #444; color: #fff;">
+                        <i class="fas fa-plus"></i> Linha
+                    </button>
+                    <button type="submit" class="btn btn-fiado-inline" style="background: #15a0a5; color: #fff;">
+                        <i class="fas fa-calendar-check"></i> Agendar parcelas
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <h3><i class="fas fa-calendar-alt"></i> Parcelas agendadas (vencimento no período)</h3>
+    <table style="width: 100%; color: #eee; border-collapse: collapse; margin-top: 12px; font-size: 0.92em;">
         <thead>
             <tr style="border-bottom: 2px solid #444; text-align: left;">
-                <th style="padding: 10px;">Data</th>
+                <th style="padding: 8px;">Status</th>
+                <th>Cód. Venda</th>
                 <th>Cliente</th>
-                <th>Qtd Total</th>
-                <th>Itens</th>
-                <th>Valor Total</th>
-                <th>Pago</th>
-                <th>Saldo</th>
-                <th>Lançar Pagamento</th>
+                <th>Entrada</th>
+                <th>Vencimento</th>
+                <th>Valor</th>
+                <th>Ações</th>
             </tr>
         </thead>
         <tbody>
-            {% for item in fiado.lista %}
-            <tr style="border-bottom: 1px solid #333;">
-                <td style="padding: 10px;">{{ item.data }}</td>
-                <td><strong>{{ item.cliente }}</strong></td>
-                <td style="text-align: center;">{{ item.qtd_total }}</td>
-                <td style="font-size: 0.85em; color: #aaa; max-width: 220px;">{{ item.itens_resumo }}</td>
-                <td>R$ {{ item.total|floatformat:2 }}</td>
-                <td style="color: #03dac6;">R$ {{ item.pago|floatformat:2 }}</td>
-                <td style="color: #cf6679; font-weight: bold;">R$ {{ item.saldo|floatformat:2 }}</td>
+            {% for p in fiado_agendamento.parcelas %}
+            <tr style="border-bottom: 1px solid #333; {% if p.atrasada and p.status == 'AGENDADO' %}background: rgba(207,102,121,0.12);{% endif %}">
+                <td style="padding: 8px;">
+                    <span style="padding: 3px 10px; border-radius: 12px; font-size: 0.85em;
+                        {% if p.status == 'AGENDADO' %}background: #ff9800; color: #000;
+                        {% elif p.status == 'PAGO' %}background: #03dac6; color: #000;
+                        {% else %}background: #666; color: #fff;{% endif %}">
+                        {{ p.status_label }}
+                    </span>
+                    {% if p.atrasada and p.status == 'AGENDADO' %}
+                    <br><small style="color: #cf6679;">Atrasada</small>
+                    {% endif %}
+                </td>
+                <td><strong>#{{ p.venda_id }}</strong></td>
+                <td>{{ p.cliente }}</td>
+                <td>{{ p.entrada }}</td>
+                <td>{{ p.vencimento }}</td>
+                <td style="font-weight: bold;">R$ {{ p.valor|floatformat:2 }}</td>
                 <td>
-                    <form method="POST" action="{% url 'registrar_pagamento_fiado' item.venda.id %}?tipo_relatorio=fiado&data_inicio={{ data_inicio }}&data_fim={{ data_fim }}&loja_id={{ loja_selecionada_id }}"
-                          style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
+                    {% if p.status == 'AGENDADO' %}
+                    <form method="POST" action="{% url 'receber_parcela_fiado' p.id %}" class="form-acao-parcela">
                         {% csrf_token %}
-                        <input type="hidden" name="tipo_relatorio" value="fiado">
+                        <input type="hidden" name="tipo_relatorio" value="fiado_agendamento">
                         <input type="hidden" name="data_inicio" value="{{ data_inicio }}">
                         <input type="hidden" name="data_fim" value="{{ data_fim }}">
                         <input type="hidden" name="loja_id" value="{{ loja_selecionada_id }}">
-                        <input type="number" name="valor" step="0.01" min="0.01" max="{{ item.saldo }}" placeholder="R$" required
-                               class="form-control" style="width: 90px; padding: 4px;">
-                        <select name="meio_liquidacao" class="form-control" style="width: 100px; padding: 4px;">
+                        <select name="meio_liquidacao" class="form-control form-acao-parcela-select">
                             <option value="DINHEIRO">Dinheiro</option>
                             <option value="PIX">Pix</option>
                             <option value="CREDITO">Crédito</option>
                             <option value="DEBITO">Débito</option>
                         </select>
-                        <button type="submit" class="btn" style="background: #ff9800; color: #000; padding: 4px 8px; font-size: 0.85em;">
-                            <i class="fas fa-check"></i> Receber
+                        <button type="submit" class="btn form-acao-parcela-btn" style="background: #03dac6; color: #000;">
+                            <i class="fas fa-hand-holding-usd"></i> Receber
                         </button>
                     </form>
+                    <form method="POST" action="{% url 'cancelar_parcela_fiado' p.id %}" style="display: inline;" onsubmit="return confirm('Cancelar esta parcela?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="tipo_relatorio" value="fiado_agendamento">
+                        <input type="hidden" name="data_inicio" value="{{ data_inicio }}">
+                        <input type="hidden" name="data_fim" value="{{ data_fim }}">
+                        <input type="hidden" name="loja_id" value="{{ loja_selecionada_id }}">
+                        <button type="submit" class="btn" style="background: #555; color: #fff; padding: 4px 8px; margin-top: 4px;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </form>
+                    {% else %}—{% endif %}
                 </td>
             </tr>
             {% empty %}
-            <tr>
-                <td colspan="8" style="text-align: center; padding: 25px; color: #888;">
-                    Nenhuma venda fiado pendente no período selecionado.
-                </td>
-            </tr>
+            <tr><td colspan="7" style="text-align: center; padding: 20px; color: #888;">Nenhuma parcela no período.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
+<script>
+document.getElementById('select-venda-agendar')?.addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    const saldo = opt?.getAttribute('data-saldo');
+    document.getElementById('saldo-agendavel-display').value = saldo ? 'R$ ' + parseFloat(saldo).toFixed(2) : '—';
+});
+function adicionarLinhaParcela() {
+    const div = document.getElementById('linhas-parcelas');
+    const linha = document.createElement('div');
+    linha.className = 'fiado-agendar-parcela fiado-parcela-extra';
+    linha.innerHTML = '<label class="fiado-lbl-valor">Valor R$</label>'
+        + '<input type="number" name="parcela_valor" step="0.01" min="0.01" placeholder="0,00" class="form-control fiado-inp-valor">'
+        + '<label class="fiado-lbl-venc">Vencimento</label>'
+        + '<input type="date" name="parcela_vencimento" class="form-control fiado-inp-venc">';
+    div.appendChild(linha);
+}
+</script>
 {% endif %}
 {% endif %}
 

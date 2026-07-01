@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from .models import (
     Loja, PerfilUsuario, Fornecedor, ItemEstoque, Produto, Cliente, 
     Venda, ItemVenda, Caixa, EntradaEstoque, PrecoFornecedorItem, PagamentoFiado, LiquidacaoVenda,
+    ParcelaFiadoAgendada,
     CategoriaTransacao, Transacao, Receita, Despesa, Moto, Motoboy, Rede,
     FormaPagamentoLoja, LogFechamentoEstoqueDiario
 )
@@ -132,6 +133,13 @@ class PagamentoFiadoAdmin(SaasAdmin):
     list_display = ('venda', 'valor', 'meio_liquidacao', 'data_pagamento', 'registrado_por')
     list_filter = ('meio_liquidacao', 'data_pagamento')
     search_fields = ('venda__id', 'venda__cliente__nome')
+
+
+@admin.register(ParcelaFiadoAgendada)
+class ParcelaFiadoAgendadaAdmin(SaasAdmin):
+    list_display = ('id', 'venda', 'cliente', 'valor', 'data_vencimento', 'status', 'data_entrada')
+    list_filter = ('status', 'data_vencimento', 'loja')
+    search_fields = ('cliente__nome', 'venda__id')
 
 
 @admin.register(LiquidacaoVenda)

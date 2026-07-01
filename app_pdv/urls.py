@@ -1,7 +1,7 @@
 from django.urls import path, include
 from . import views
 from . import gestor_views
-from .views import CustomAuthToken,EntregasDisponiveisView, AssumirEntregaView, MinhasEntregasView, ReceberLeadTrafficHub
+from .views import CustomAuthToken,EntregasDisponiveisView, AssumirEntregaView, MinhasEntregasView, DevolverEntregaView, ReceberLeadTrafficHub
 
 
 urlpatterns = [
@@ -29,6 +29,7 @@ urlpatterns = [
 
     path('vendas/nova/', views.nova_venda, name='nova_venda'),
     path('vendas/salvar/', views.salvar_venda, name='salvar_venda'),
+    path('vendas/cliente/rapido/', views.api_criar_cliente_pdv, name='api_criar_cliente_pdv'),
     path('vendas/excluir/<int:id>/', views.excluir_venda, name='excluir_venda'),
 
     # ------------------------------Fornecedores------------------------------
@@ -89,6 +90,10 @@ urlpatterns = [
 
     path('relatorios/', views.relatorios, name='relatorios'),
     path('fiado/pagamento/<int:venda_id>/', views.registrar_pagamento_fiado, name='registrar_pagamento_fiado'),
+    path('fiado/pagamento-unificado/', views.registrar_pagamento_fiado_unificado, name='registrar_pagamento_fiado_unificado'),
+    path('fiado/agendar/', views.criar_parcelas_fiado_agendadas, name='criar_parcelas_fiado_agendadas'),
+    path('fiado/parcela/<int:parcela_id>/cancelar/', views.cancelar_parcela_fiado, name='cancelar_parcela_fiado'),
+    path('fiado/parcela/<int:parcela_id>/receber/', views.receber_parcela_fiado, name='receber_parcela_fiado'),
     path('categorias/', views.lista_categorias, name='lista_categorias'),
     path('categorias/deletar/<int:id>/', views.deletar_categoria, name='deletar_categoria'),
     path('transacao/nova/', views.adicionar_transacao, name='adicionar_transacao'),
@@ -132,6 +137,7 @@ urlpatterns = [
     path('api/gestor/campanha/', gestor_views.api_gestor_campanha, name='api_gestor_campanha'),
 
     path('api/entregas/assumir/<int:venda_id>/', AssumirEntregaView.as_view(), name='api_assumir_entrega'),
+    path('api/entregas/devolver/<int:venda_id>/', DevolverEntregaView.as_view(), name='api_devolver_entrega'),
     path('api/entregas/minhas/', MinhasEntregasView.as_view(), name='api_minhas_entregas'),
     path('api/entregas/disponiveis/', EntregasDisponiveisView.as_view(), name='api_listar_entregas'),
     path('api/entregas/finalizar/<int:venda_id>/', views.api_finalizar_entrega, name='api_finalizar_entrega'),

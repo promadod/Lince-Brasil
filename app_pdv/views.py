@@ -47,6 +47,7 @@ from .models import (
     EntradaEstoque, ItemEstoque, PerfilUsuario, LogTransferenciaEstoque,
     LogFechamentoEstoqueDiario,
     FormaPagamentoLoja, PrecoFornecedorItem, PagamentoFiado, LiquidacaoVenda,
+    ParcelaFiadoAgendada, saldo_agendavel_venda,
     validar_forma_pagamento, montar_resumo_pagamentos_loja,
     montar_relatorio_pagamentos, get_nome_forma_pagamento, criar_formas_pagamento_padrao,
     validar_meio_liquidacao, montar_resumo_liquidacao_loja, calcular_entradas_gaveta,
@@ -56,6 +57,10 @@ from .models import (
     produto_baixa_apenas_vasilhame_vazio,
 )
 from .filtros_venda import FILTROS_STATUS_HISTORICO, filtrar_vendas_historico
+from .fiado_helpers import (
+    listar_vendas_fiado_abertas, agrupar_fiado_por_cliente,
+    listar_parcelas_agendadas, distribuir_pagamento_fiado,
+)
 from .forms import (
     ProdutoForm, ClienteForm, FornecedorForm, LojaForm, 
     CategoriaTransacaoForm, TransacaoForm, ImportacaoForm, 
@@ -532,8 +537,6 @@ def _processar_salvar_venda(request, loja, data):
         
         # --- LÓGICA DE ATUALIZAR A TAXA PADRÃO ---
         nova_taxa_valor = _valor_decimal_payload(data.get('taxa_entrega'))
-        if eh_fiado:
-            nova_taxa_valor = Decimal('0')
         if data.get('atualizar_padrao') is True:
             loja.taxa_entrega_pdv = nova_taxa_valor
             loja.save()
@@ -1936,50 +1939,31 @@ def relatorios(request):
         lojas_fiado = lojas_alvo.filter(usa_fiado=True)
         context['tem_fiado'] = lojas_fiado.exists()
 
-        vendas_fiado = Venda.objects.filter(
-            loja__in=lojas_fiado,
-            eh_fiado=True,
-            status='FIADO',
-            data_venda__date__range=[data_inicio, data_fim],
-        ).select_related('cliente', 'loja').prefetch_related('itens__produto').order_by('-data_venda')
-
-        lista_fiado = []
-        total_devedor = Decimal('0')
-        total_vendido = Decimal('0')
-        total_pago = Decimal('0')
-
-        for venda in vendas_fiado:
-            itens_txt = []
-            for item in venda.itens.all():
-                qtd = item.quantidade
-                if item.produto.item_estoque.unidade_medida == 'UN':
-                    qtd_fmt = f"{int(qtd)}"
-                else:
-                    qtd_fmt = f"{qtd:.3f}".rstrip('0').rstrip('.')
-                itens_txt.append(f"{qtd_fmt}x {item.produto.nome_venda}")
-
-            saldo = venda.saldo_devedor
-            pago = venda.valor_pago_fiado
-            lista_fiado.append({
-                'venda': venda,
-                'cliente': venda.cliente.nome if venda.cliente else '—',
-                'data': localtime(venda.data_venda).strftime('%d/%m/%Y %H:%M'),
-                'qtd_total': venda.qtd_itens_vendidos,
-                'itens_resumo': ', '.join(itens_txt) if itens_txt else '—',
-                'total': venda.total,
-                'pago': pago,
-                'saldo': saldo,
-            })
-            total_devedor += saldo
-            total_vendido += Decimal(str(venda.total or 0))
-            total_pago += pago
-
+        lista_fiado, totais = listar_vendas_fiado_abertas(
+            lojas_fiado, data_inicio, data_fim, todas_datas=False,
+        )
         context['fiado'] = {
             'lista': lista_fiado,
-            'total_devedor': total_devedor,
-            'total_vendido': total_vendido,
-            'total_pago': total_pago,
-            'qtd_vendas': len(lista_fiado),
+            'por_cliente': agrupar_fiado_por_cliente(lista_fiado),
+            **totais,
+        }
+
+    # --- 8b. CENTRAL DE AGENDAMENTO FIADO ---
+    elif tipo_relatorio == 'fiado_agendamento':
+        lojas_fiado = lojas_alvo.filter(usa_fiado=True)
+        context['tem_fiado'] = lojas_fiado.exists()
+
+        lista_vendas, totais_vendas = listar_vendas_fiado_abertas(
+            lojas_fiado, data_inicio=None, data_fim=None, todas_datas=True,
+        )
+        parcelas, totais_parcelas = listar_parcelas_agendadas(
+            lojas_fiado, data_inicio, data_fim,
+        )
+        context['fiado_agendamento'] = {
+            'vendas_abertas': lista_vendas,
+            'totais_vendas': totais_vendas,
+            'parcelas': parcelas,
+            'totais_parcelas': totais_parcelas,
         }
 
     # --- 9. RELATÓRIO DE FIADO QUITADO (SALDO LIQUIDADO) ---
@@ -2049,6 +2033,16 @@ def relatorios(request):
     return render(request, 'app_pdv/relatorios.html', context)
 
 
+def _redirect_relatorio_fiado(request, tipo='fiado'):
+    data_inicio = request.POST.get('data_inicio', request.GET.get('data_inicio', ''))
+    data_fim = request.POST.get('data_fim', request.GET.get('data_fim', ''))
+    loja_id = request.POST.get('loja_id', request.GET.get('loja_id', 'todas'))
+    return redirect(
+        f"{reverse('relatorios')}?tipo_relatorio={tipo}"
+        f"&data_inicio={data_inicio}&data_fim={data_fim}&loja_id={loja_id}"
+    )
+
+
 @login_required
 @transaction.atomic
 def registrar_pagamento_fiado(request, venda_id):
@@ -2072,10 +2066,193 @@ def registrar_pagamento_fiado(request, venda_id):
             messages.error(request, str(e))
 
     tipo = request.POST.get('tipo_relatorio', request.GET.get('tipo_relatorio', 'fiado'))
-    data_inicio = request.POST.get('data_inicio', request.GET.get('data_inicio', ''))
-    data_fim = request.POST.get('data_fim', request.GET.get('data_fim', ''))
-    loja_id = request.POST.get('loja_id', request.GET.get('loja_id', 'todas'))
-    return redirect(f"{reverse('relatorios')}?tipo_relatorio={tipo}&data_inicio={data_inicio}&data_fim={data_fim}&loja_id={loja_id}")
+    return _redirect_relatorio_fiado(request, tipo)
+
+
+@login_required
+@transaction.atomic
+def registrar_pagamento_fiado_unificado(request):
+    loja = check_loja(request)
+    if not loja or request.method != 'POST':
+        return redirect('relatorios')
+
+    venda_ids = request.POST.getlist('venda_ids')
+    if not venda_ids:
+        messages.error(request, 'Selecione ao menos uma venda para receber.')
+        return _redirect_relatorio_fiado(request, request.POST.get('tipo_relatorio', 'fiado'))
+
+    vendas = list(
+        Venda.objects.filter(
+            pk__in=venda_ids, loja=loja, eh_fiado=True, status='FIADO',
+        ).select_related('cliente').order_by('data_venda', 'id')
+    )
+    if not vendas:
+        messages.error(request, 'Nenhuma venda fiado válida selecionada.')
+        return _redirect_relatorio_fiado(request, request.POST.get('tipo_relatorio', 'fiado'))
+
+    cliente_ids = {v.cliente_id for v in vendas if v.cliente_id}
+    if len(cliente_ids) > 1:
+        messages.error(request, 'Só é possível unificar parcelas do mesmo cliente.')
+        return _redirect_relatorio_fiado(request, request.POST.get('tipo_relatorio', 'fiado'))
+
+    valor_str = (request.POST.get('valor') or '').replace(',', '.')
+    meio = request.POST.get('meio_liquidacao', 'DINHEIRO')
+    observacao = request.POST.get('observacao', '')
+    tipo = request.POST.get('tipo_relatorio', 'fiado')
+
+    try:
+        valor = Decimal(valor_str)
+        caixa_aberto = Caixa.objects.filter(loja=loja, status=True).first()
+        alocacoes = distribuir_pagamento_fiado(vendas, valor)
+        for venda, parte in alocacoes:
+            venda.registrar_pagamento_fiado(parte, meio, observacao, request.user, caixa=caixa_aberto)
+        messages.success(
+            request,
+            f'Pagamento unificado de R$ {valor:.2f} registrado em {len(alocacoes)} venda(s).',
+        )
+    except Exception as e:
+        messages.error(request, str(e))
+
+    return _redirect_relatorio_fiado(request, tipo)
+
+
+@login_required
+@transaction.atomic
+def criar_parcelas_fiado_agendadas(request):
+    loja = check_loja(request)
+    if not loja or request.method != 'POST':
+        return redirect('relatorios')
+
+    venda_id = request.POST.get('venda_id')
+    venda = get_object_or_404(Venda, pk=venda_id, loja=loja, eh_fiado=True, status='FIADO')
+
+    if not venda.cliente_id:
+        messages.error(request, 'Venda sem cliente vinculado.')
+        return _redirect_relatorio_fiado(request, 'fiado_agendamento')
+
+    valores = request.POST.getlist('parcela_valor')
+    vencimentos = request.POST.getlist('parcela_vencimento')
+    criadas = 0
+
+    try:
+        saldo_disp = saldo_agendavel_venda(venda)
+        for val_str, ven_str in zip(valores, vencimentos):
+            if not val_str or not ven_str:
+                continue
+            valor = Decimal(str(val_str).replace(',', '.'))
+            if valor <= 0:
+                continue
+            if valor > saldo_disp:
+                raise ValueError(
+                    f'Parcela R$ {valor:.2f} excede saldo agendável R$ {saldo_disp:.2f}.'
+                )
+            data_venc = datetime.strptime(ven_str, '%Y-%m-%d').date()
+            ParcelaFiadoAgendada.objects.create(
+                loja=loja,
+                venda=venda,
+                cliente=venda.cliente,
+                valor=valor,
+                data_vencimento=data_venc,
+                criado_por=request.user,
+            )
+            saldo_disp -= valor
+            criadas += 1
+
+        if criadas:
+            messages.success(request, f'{criadas} parcela(s) agendada(s) para venda #{venda.id}.')
+        else:
+            messages.warning(request, 'Informe ao menos uma parcela com valor e vencimento.')
+    except Exception as e:
+        messages.error(request, str(e))
+
+    return _redirect_relatorio_fiado(request, 'fiado_agendamento')
+
+
+@login_required
+@transaction.atomic
+def cancelar_parcela_fiado(request, parcela_id):
+    loja = check_loja(request)
+    if not loja:
+        return redirect('relatorios')
+
+    parcela = get_object_or_404(ParcelaFiadoAgendada, pk=parcela_id, loja=loja)
+    if parcela.status != 'AGENDADO':
+        messages.error(request, 'Só é possível cancelar parcelas agendadas.')
+    else:
+        parcela.status = 'CANCELADO'
+        parcela.save(update_fields=['status'])
+        messages.success(request, f'Parcela #{parcela.id} cancelada.')
+
+    return _redirect_relatorio_fiado(request, 'fiado_agendamento')
+
+
+@login_required
+@transaction.atomic
+def receber_parcela_fiado(request, parcela_id):
+    loja = check_loja(request)
+    if not loja or request.method != 'POST':
+        return redirect('relatorios')
+
+    parcela = get_object_or_404(
+        ParcelaFiadoAgendada.objects.select_related('venda'),
+        pk=parcela_id, loja=loja, status='AGENDADO',
+    )
+    venda = parcela.venda
+    meio = request.POST.get('meio_liquidacao', 'DINHEIRO')
+    observacao = request.POST.get('observacao', '') or f'Parcela agendada #{parcela.id}'
+
+    try:
+        if parcela.valor > venda.saldo_devedor:
+            raise ValueError('Valor da parcela maior que o saldo devedor da venda.')
+        caixa_aberto = Caixa.objects.filter(loja=loja, status=True).first()
+        pag = venda.registrar_pagamento_fiado(
+            parcela.valor, meio, observacao, request.user, caixa=caixa_aberto,
+        )
+        parcela.status = 'PAGO'
+        parcela.pagamento = pag
+        parcela.save(update_fields=['status', 'pagamento'])
+        messages.success(request, f'Parcela #{parcela.id} recebida. Saldo restante: R$ {venda.saldo_devedor:.2f}')
+    except Exception as e:
+        messages.error(request, str(e))
+
+    tipo = request.POST.get('tipo_relatorio', 'fiado_agendamento')
+    return _redirect_relatorio_fiado(request, tipo)
+
+
+@login_required
+def api_criar_cliente_pdv(request):
+    loja = check_loja(request)
+    if not loja:
+        return JsonResponse({'erro': 'Loja não encontrada.'}, status=400)
+
+    if request.method != 'POST':
+        return JsonResponse({'erro': 'Método inválido.'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'erro': 'JSON inválido.'}, status=400)
+
+    nome = (data.get('nome') or '').strip()
+    if not nome:
+        return JsonResponse({'erro': 'Nome do cliente é obrigatório.'}, status=400)
+
+    cliente = Cliente.objects.create(
+        loja=loja,
+        nome=nome,
+        whatsapp=(data.get('whatsapp') or '').strip() or None,
+        telefone=(data.get('whatsapp') or '').strip() or None,
+        endereco=(data.get('endereco') or '').strip() or None,
+        bairro=(data.get('bairro') or '').strip() or None,
+    )
+    return JsonResponse({
+        'id': cliente.id,
+        'nome': cliente.nome,
+        'whatsapp': cliente.whatsapp or '',
+        'endereco': cliente.endereco or '',
+        'bairro': cliente.bairro or '',
+    })
+
 
 @login_required
 def ver_recibo_fechamento(request, id):
@@ -2697,6 +2874,37 @@ class AssumirEntregaView(APIView):
             
         except Venda.DoesNotExist:
             return Response({'erro': 'Venda não encontrada'}, status=404)
+
+
+class DevolverEntregaView(APIView):
+    """Devolve entrega assumida para a fila de disponíveis."""
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, venda_id):
+        loja = get_loja_contexto(request)
+        if not loja:
+            return Response({'erro': 'Loja não identificada'}, status=403)
+        if not loja.monitorar_entrega:
+            return Response({'erro': 'Entregas gerenciadas pela Torre de Controle.'}, status=400)
+
+        try:
+            venda = Venda.objects.get(id=venda_id, loja=loja)
+        except Venda.DoesNotExist:
+            return Response({'erro': 'Venda não encontrada'}, status=404)
+
+        if venda.entregador_id != request.user.id:
+            return Response({'erro': 'Esta entrega não está com você.'}, status=403)
+        if venda.status_entrega == 'ENTREGUE':
+            return Response({'erro': 'Entrega já finalizada.'}, status=400)
+
+        venda.entregador = None
+        venda.status_entrega = 'PENDENTE'
+        if venda.status == 'SAIU_ENTREGA':
+            venda.status = 'EM_PREPARACAO'
+        venda.save(update_fields=['entregador', 'status_entrega', 'status'])
+        return Response({'mensagem': 'Entrega devolvida à fila.'})
+
 
 import logging
 logger = logging.getLogger(__name__)
