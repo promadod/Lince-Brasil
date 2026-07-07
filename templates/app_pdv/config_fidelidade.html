@@ -5,11 +5,11 @@
 {% block content %}
 <h2 style="margin-bottom:20px;">Plano de Fidelidade</h2>
 <p style="color:#aaa; margin-bottom:20px;">
-    Configure a meta que o cliente precisa atingir para liberar a promoção no carrinho do app.
+    Configure a meta que o cliente precisa atingir para liberar a promoção no PDV e no app.
     A meta pode ser por <strong>quantidade de produtos</strong> ou por <strong>valor acumulado (pontos)</strong>.
 </p>
 
-<div class="card" style="max-width: 600px;">
+<div class="card" style="max-width: 600px; margin-bottom: 30px;">
     <form method="post">
         {% csrf_token %}
         {% for field in form %}
@@ -23,4 +23,49 @@
         <button type="submit" class="btn">Salvar Configuração</button>
     </form>
 </div>
+
+{% if loja.fidelidade_ativa and acompanhamento %}
+<div class="card">
+    <h3 style="margin-bottom: 16px;">Acompanhamento de Clientes</h3>
+    <table style="width: 100%; color: #eee;">
+        <thead>
+            <tr style="border-bottom: 2px solid #444; text-align: left;">
+                <th style="padding: 10px;">Cliente</th>
+                <th>Progresso</th>
+                <th>Falta</th>
+                <th>Promoção</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in acompanhamento %}
+            <tr style="border-bottom: 1px solid #333;">
+                <td style="padding: 10px;">{{ c.nome }}</td>
+                <td>
+                    <div style="background:#333;border-radius:4px;height:8px;width:120px;display:inline-block;vertical-align:middle;margin-right:8px;">
+                        <div style="background:#15a0a5;height:100%;width:{{ c.percentual }}%;border-radius:4px;"></div>
+                    </div>
+                    {% if c.tipo_meta == 'PONTOS' %}
+                    {{ c.progresso|floatformat:2 }} / {{ c.meta|floatformat:2 }} pts
+                    {% else %}
+                    {{ c.progresso|floatformat:0 }} / {{ c.meta|floatformat:0 }} prod.
+                    {% endif %}
+                </td>
+                <td style="color: #aaa;">
+                    {% if c.tipo_meta == 'PONTOS' %}{{ c.falta|floatformat:2 }} pts{% else %}{{ c.falta|floatformat:0 }} prod.{% endif %}
+                </td>
+                <td>
+                    {% if c.promocao_disponivel %}
+                    <span style="color:#03dac6;font-weight:bold;">Disponível</span>
+                    {% else %}
+                    <span style="color:#888;">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% elif loja.fidelidade_ativa %}
+<div class="card"><p style="color:#888;">Nenhum cliente com progresso registrado ainda.</p></div>
+{% endif %}
 {% endblock %}

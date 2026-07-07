@@ -14,7 +14,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'app_pdv',
+    'app_pdv.apps.AppPdvConfig',
     'transporte',
     'rest_framework',
     'rest_framework.authtoken',
@@ -30,9 +30,19 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    
+    'app_pdv.middleware.LoginProtecaoMiddleware',
+    'app_pdv.middleware.SessaoUnicaMiddleware',
     'app_pdv.middleware.BloqueioPagamentoMiddleware',
 ]
+
+AUTHENTICATION_BACKENDS = [
+    'app_pdv.backends.SegurancaAuthBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# IP real em proxy (PythonAnywhere / nginx)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
 
 ROOT_URLCONF = 'setup.urls'
 
@@ -91,9 +101,10 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'app_pdv.authentication.SessaoUnicaTokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
     ],
 }
 
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_ALL_ORIGINS = True

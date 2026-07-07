@@ -82,9 +82,11 @@
     <option value="{{ produto.nome_venda }}"
             data-id="{{ produto.id }}"
             data-preco="{{ produto.preco_venda|stringformat:'.2f' }}"
+            data-preco-completo="{% if produto.preco_venda_completo %}{{ produto.preco_venda_completo|stringformat:'.2f' }}{% else %}{{ produto.preco_venda|stringformat:'.2f' }}{% endif %}"
             data-unidade="{{ produto.item_estoque.unidade_medida|default:'UN' }}"
             data-qtd-baixa="{{ produto.quantidade_baixa|stringformat:'.3f' }}"
             data-vende-vazio="{% if produto.baixa_apenas_vasilhame_vazio %}1{% else %}0{% endif %}"
+            data-venda-completa="{% if produto.usa_venda_completa %}1{% else %}0{% endif %}"
             data-estoque-cheio="{{ produto.item_estoque.quantidade_estoque|stringformat:'.3f' }}"
             data-estoque-vazio="{{ produto.item_estoque.quantidade_vazios|stringformat:'.3f' }}">
         {% if estoque_diario %}
@@ -110,10 +112,21 @@
                     </button>
                 </div>
 
+                {% if fidelidade_ativa %}
+                <div id="painel_fidelidade" style="display:none; margin-top:12px; padding:10px; background:rgba(21,160,165,0.12); border-radius:8px; border:1px solid rgba(21,160,165,0.35);">
+                    <div id="fidelidade_info" style="font-size:0.9em; color:#ccc; margin-bottom:8px;"></div>
+                    <div id="wrap_usar_fidelidade" class="check-container" style="display:none;">
+                        <input type="checkbox" id="check_usar_fidelidade">
+                        <label for="check_usar_fidelidade" style="color:#03dac6;font-weight:bold;">Usar promoção de fidelidade</label>
+                    </div>
+                </div>
+                {% endif %}
+
                 <label for="tipo_venda">Tipo</label>
                 <select id="tipo_venda">
                     <option value="FINALIZADO">Venda Direta</option>
                     <option value="ORCAMENTO">Orçamento</option>
+                    <option value="CORTESIA">Cortesia</option>
                 </select>
             </div>
 
@@ -174,8 +187,8 @@
     <div class="pdv-footer-bar card">
         <div class="pdv-footer-campos">
             <div class="pdv-footer-field pdv-footer-taxa">
-                <label for="inputTaxa">Taxa Entrega (R$)</label>
-                <input type="number" id="inputTaxa" value="0.00" disabled>
+                <label for="inputTaxa" id="labelTaxaExtra">Taxa Entrega (R$)</label>
+                <input type="number" id="inputTaxa" value="0.00" step="0.01" disabled>
             </div>
             <div class="pdv-footer-field">
                 <label for="selectPagamento">Tipo Lançamento</label>
@@ -194,6 +207,7 @@
                     <option value="PIX" {% if venda_aberta and venda_aberta.meio_liquidacao == 'PIX' %}selected{% elif not venda_aberta %}selected{% endif %}>Pix</option>
                     <option value="CREDITO" {% if venda_aberta and venda_aberta.meio_liquidacao == 'CREDITO' %}selected{% endif %}>Crédito</option>
                     <option value="DEBITO" {% if venda_aberta and venda_aberta.meio_liquidacao == 'DEBITO' %}selected{% endif %}>Débito</option>
+                    <option value="CORTESIA" {% if venda_aberta and venda_aberta.meio_liquidacao == 'CORTESIA' %}selected{% endif %} style="display:none;">Cortesia</option>
                 </select>
             </div>
 
@@ -256,6 +270,13 @@
     const itensPreCarregados = {{ itens_json|safe|default:"[]" }};
     const liquidacoesPreCarregadas = {{ liquidacoes_json|default:"[]"|safe }};
     const PERMITE_PAGAMENTO_DIVIDIDO = {{ permite_pagamento_dividido|yesno:"true,false" }};
+    const FIDELIDADE_ATIVA = {{ fidelidade_ativa|yesno:"true,false" }};
+    const LOJA_TRABALHA_COM_ENTREGAS = {{ trabalha_com_entregas|yesno:"true,false" }};
+    const IMPRESSAO_AUTOMATICA = {{ impressao_automatica|yesno:"true,false" }};
+    const MODO_TAXA_SERVICO = {{ modo_taxa_servico|yesno:"true,false" }};
+    const TAXA_SERVICO_PADRAO = parsePrecoBR("{{ taxa_servico_pct|default:10|stringformat:'.2f' }}");
+    let descontoFidelidadeAtual = 0;
+    let fidelidadeCliente = null;
     const MEIOS_LIQUIDACAO = [
         { codigo: 'DINHEIRO', nome: 'Dinheiro' },
         { codigo: 'PIX', nome: 'Pix' },
@@ -269,10 +290,42 @@
     let ultimoClienteInput = '';
 
     function obterTaxaEntrega() {
+        if (MODO_TAXA_SERVICO || tipoVendaEhCortesia()) return 0;
         const inputTaxa = document.getElementById('inputTaxa');
         if (!inputTaxa || inputTaxa.disabled) return 0;
         const v = parsePrecoBR(inputTaxa.value);
         return isFinite(v) && v > 0 ? v : 0;
+    }
+
+    function obterTaxaServicoPct() {
+        if (!MODO_TAXA_SERVICO || tipoVendaEhCortesia()) return 0;
+        const inputTaxa = document.getElementById('inputTaxa');
+        if (!inputTaxa || inputTaxa.disabled) return 0;
+        const v = parsePrecoBR(inputTaxa.value);
+        return isFinite(v) && v > 0 ? v : 0;
+    }
+
+    function obterValorTaxaServico(baseAposFid) {
+        const pct = obterTaxaServicoPct();
+        if (pct <= 0 || baseAposFid <= 0) return 0;
+        return Math.round((baseAposFid * pct / 100) * 100) / 100;
+    }
+
+    function configurarCampoTaxa() {
+        const label = document.getElementById('labelTaxaExtra');
+        const inputTaxa = document.getElementById('inputTaxa');
+        if (!label || !inputTaxa) return;
+        if (MODO_TAXA_SERVICO) {
+            label.innerText = 'Taxa Serviço (%)';
+            inputTaxa.step = '0.01';
+            inputTaxa.disabled = false;
+            if (!inputTaxa.value || parsePrecoBR(inputTaxa.value) === 0) {
+                inputTaxa.value = TAXA_SERVICO_PADRAO.toFixed(2);
+            }
+        } else {
+            label.innerText = 'Taxa Entrega (R$)';
+            inputTaxa.step = '0.01';
+        }
     }
 
     /** Converte preço pt-BR (93,16) ou en-US (93.16) para número. */
@@ -284,8 +337,14 @@
     // --- LÓGICA DO TROCO ---
     const selectPagamento = document.getElementById('selectPagamento'); 
     const selectMeioLiquidacao = document.getElementById('selectMeioLiquidacao');
+    const selectTipoVenda = document.getElementById('tipo_venda');
     const divTroco = document.getElementById('div_troco');
     const inputTroco = document.getElementById('input_troco_para');
+    const checkVendaFiado = document.getElementById('check_venda_fiado');
+    const camposFiado = document.getElementById('campos_fiado');
+    const checkFinalizarDepois = document.getElementById('check_finalizar_depois');
+    const campoPagamento = selectPagamento ? selectPagamento.closest('.pdv-footer-field') : null;
+    const checksFooter = document.querySelector('.pdv-footer-checks');
 
     function meioLiquidacaoEhDinheiro() {
         if (pagamentoDivididoAtivo()) return false;
@@ -306,7 +365,10 @@
     function obterTotalVenda() {
         const displayTotal = document.getElementById('valorTotalDisplay');
         if (!displayTotal) return 0;
-        return parsePrecoBR(displayTotal.innerText.replace('R$', '').trim());
+        let txt = displayTotal.innerText.replace('R$', '').trim();
+        const fidIdx = txt.indexOf('(-R$');
+        if (fidIdx > 0) txt = txt.substring(0, fidIdx).trim();
+        return parsePrecoBR(txt);
     }
 
     function meiosDisponiveisLinha(selectAtual) {
@@ -395,6 +457,7 @@
     }
 
     function clienteExigeEntrega() {
+        if (!LOJA_TRABALHA_COM_ENTREGAS) return false;
         const nome = document.getElementById('cliente_input').value.trim();
         const nomeUpper = nome.toUpperCase();
         return nome.length > 0 && nomeUpper !== 'VENDA DIRETA' && nomeUpper !== 'CONSUMIDOR FINAL';
@@ -445,6 +508,12 @@
     }
 
     function verificarTroco() {
+        if (tipoVendaEhCortesia()) {
+            divTroco.style.display = 'none';
+            inputTroco.value = '';
+            inputTroco.required = false;
+            return;
+        }
         if (meioLiquidacaoEhDinheiro()) {
             divTroco.style.display = 'block';
             inputTroco.required = true;
@@ -456,9 +525,79 @@
     }
     selectMeioLiquidacao.addEventListener('change', verificarTroco);
 
-    const checkVendaFiado = document.getElementById('check_venda_fiado');
-    const camposFiado = document.getElementById('campos_fiado');
-    const checkFinalizarDepois = document.getElementById('check_finalizar_depois');
+    function tipoVendaEhCortesia() {
+        return selectTipoVenda && selectTipoVenda.value === 'CORTESIA';
+    }
+
+    function tipoVendaEhOrcamento() {
+        return selectTipoVenda && selectTipoVenda.value === 'ORCAMENTO';
+    }
+
+    function toggleTipoVenda() {
+        const cortesia = tipoVendaEhCortesia();
+        const orcamento = tipoVendaEhOrcamento();
+        const ocultarPagamento = orcamento;
+
+        if (campoPagamento) campoPagamento.style.display = ocultarPagamento ? 'none' : '';
+        if (blocoMeioUnico) blocoMeioUnico.style.display = ocultarPagamento ? 'none' : 'block';
+        if (divTroco && ocultarPagamento) divTroco.style.display = 'none';
+
+        if (checkPagamentoDividido) {
+            if (ocultarPagamento) {
+                checkPagamentoDividido.checked = false;
+                checkPagamentoDividido.disabled = true;
+                togglePagamentoDividido();
+            } else if (!checkVendaFiado || !checkVendaFiado.checked) {
+                checkPagamentoDividido.disabled = false;
+            }
+        }
+        const inputTaxa = document.getElementById('inputTaxa');
+        if (inputTaxa) {
+            if (cortesia) {
+                inputTaxa.value = '0.00';
+                inputTaxa.disabled = true;
+                taxaEntregaManual = false;
+            }
+        }
+
+        if (cortesia && selectMeioLiquidacao) {
+            // Exibe apenas o meio "Cortesia" quando o tipo for cortesia
+            Array.from(selectMeioLiquidacao.options).forEach(opt => {
+                const isCortesia = opt.value === 'CORTESIA';
+                opt.style.display = isCortesia ? '' : 'none';
+            });
+            selectMeioLiquidacao.value = 'CORTESIA';
+            selectMeioLiquidacao.disabled = true;
+        } else if (selectMeioLiquidacao) {
+            Array.from(selectMeioLiquidacao.options).forEach(opt => {
+                opt.style.display = opt.value === 'CORTESIA' ? 'none' : '';
+            });
+            selectMeioLiquidacao.disabled = false;
+        }
+
+        if (checkVendaFiado) checkVendaFiado.disabled = cortesia;
+        if (checkFinalizarDepois) checkFinalizarDepois.disabled = cortesia;
+        if (camposFiado && ocultarPagamento) camposFiado.style.display = 'none';
+        if (checksFooter) {
+            checksFooter.querySelectorAll('.check-container').forEach(wrap => {
+                const inp = wrap.querySelector('input');
+                if (!inp) return;
+                if (inp.id === 'check_venda_fiado' || inp.id === 'check_pagamento_dividido') {
+                    wrap.style.display = ocultarPagamento ? 'none' : '';
+                }
+            });
+        }
+        if (!ocultarPagamento) verificarTroco();
+        if (!cortesia) {
+            configurarCampoTaxa();
+            if (!MODO_TAXA_SERVICO) verificarEntregaAutomatica();
+        }
+        calcularTotalGeral();
+    }
+    if (selectTipoVenda) {
+        selectTipoVenda.addEventListener('change', toggleTipoVenda);
+        toggleTipoVenda();
+    }
 
     function toggleFiado() {
         if (!checkVendaFiado) return;
@@ -489,18 +628,42 @@
     // -----------------------
     
     window.onload = function() {
-        verificarTroco(); 
+        verificarTroco();
+        toggleTipoVenda();
+        configurarCampoTaxa();
+
+        const checkUsarFid = document.getElementById('check_usar_fidelidade');
+        if (checkUsarFid) {
+            checkUsarFid.addEventListener('change', calcularTotalGeral);
+        }
 
         if (itensPreCarregados.length > 0) {
-            carrinho = itensPreCarregados;
+            carrinho = itensPreCarregados.map(function(it) {
+                return {
+                    id: String(it.id),
+                    nome: it.nome,
+                    preco: parsePrecoBR(it.preco),
+                    quantidade: parseFloat(it.quantidade) || 0,
+                    unidade: it.unidade || 'UN',
+                    venda_completa: !!it.venda_completa,
+                };
+            });
             renderizarTabela();
             {% if venda_aberta %}
                 {% if venda_aberta.cliente %}
                     document.getElementById('cliente_input').value = "{{ venda_aberta.cliente.nome }}";
                     document.getElementById('cliente_id_hidden').value = "{{ venda_aberta.cliente.id }}";
                 {% endif %}
+                {% if modo_taxa_servico %}
+                let pctServ = "{{ venda_aberta.taxa_servico_pct|default:taxa_servico_pct|stringformat:'.2f' }}".replace(',', '.');
+                if (document.getElementById('inputTaxa')) {
+                    document.getElementById('inputTaxa').value = pctServ;
+                    document.getElementById('inputTaxa').disabled = false;
+                }
+                {% else %}
                 let taxa = "{{ venda_aberta.taxa_entrega|stringformat:'.2f' }}".replace(',', '.');
                 if(document.getElementById('inputTaxa')) document.getElementById('inputTaxa').value = taxa;
+                {% endif %}
                 let pgto = "{{ venda_aberta.forma_pagamento }}";
                 if(pgto) {
                     document.getElementById('selectPagamento').value = pgto;
@@ -522,6 +685,10 @@
                 }
                 {% endif %}
                 calcularTotalGeral();
+                if (FIDELIDADE_ATIVA) {
+                    const cid = document.getElementById('cliente_id_hidden').value;
+                    if (cid) atualizarPainelFidelidade(cid);
+                }
             {% endif %}
         }
         
@@ -657,6 +824,12 @@
         const isFiado = checkVendaFiado && checkVendaFiado.checked;
         const clienteId = document.getElementById('cliente_id_hidden').value;
 
+        if (MODO_TAXA_SERVICO) {
+            configurarCampoTaxa();
+            calcularTotalGeral();
+            return;
+        }
+
         if (nome !== ultimoClienteInput) {
             if (!clienteExigeEntrega()) {
                 taxaEntregaManual = false;
@@ -724,6 +897,59 @@
             taxaEntregaManual = false;
         }
         verificarEntregaAutomatica();
+        if (FIDELIDADE_ATIVA) atualizarPainelFidelidade(hiddenId);
+    }
+
+    async function atualizarPainelFidelidade(clienteId) {
+        const painel = document.getElementById('painel_fidelidade');
+        const info = document.getElementById('fidelidade_info');
+        const wrapUsar = document.getElementById('wrap_usar_fidelidade');
+        const checkUsar = document.getElementById('check_usar_fidelidade');
+        if (!painel || !info) return;
+
+        if (!clienteId) {
+            painel.style.display = 'none';
+            fidelidadeCliente = null;
+            descontoFidelidadeAtual = 0;
+            if (checkUsar) checkUsar.checked = false;
+            calcularTotalGeral();
+            return;
+        }
+
+        try {
+            const resp = await fetch(`{% url 'api_fidelidade_cliente_pdv' %}?cliente_id=${clienteId}`);
+            const data = await resp.json();
+            fidelidadeCliente = data.fidelidade || null;
+            painel.style.display = 'block';
+
+            if (!fidelidadeCliente || !fidelidadeCliente.ativa) {
+                info.textContent = 'Fidelidade não configurada para esta loja.';
+                if (wrapUsar) wrapUsar.style.display = 'none';
+                return;
+            }
+
+            const tipo = fidelidadeCliente.tipo_meta === 'PONTOS' ? 'pontos' : 'produtos';
+            info.innerHTML = `Progresso: <strong>${fidelidadeCliente.progresso}</strong> / ${fidelidadeCliente.meta} ${tipo} (${fidelidadeCliente.percentual_progresso}%)`;
+
+            if (fidelidadeCliente.promocao_disponivel && wrapUsar && checkUsar) {
+                wrapUsar.style.display = 'block';
+                info.innerHTML += ` — <span style="color:#03dac6;">Promoção de ${fidelidadeCliente.desconto_pct}% disponível!</span>`;
+            } else if (wrapUsar) {
+                wrapUsar.style.display = 'none';
+                checkUsar.checked = false;
+            }
+            calcularTotalGeral();
+        } catch (e) {
+            painel.style.display = 'none';
+        }
+    }
+
+    function calcularDescontoFidelidade(totalProdutos) {
+        if (!FIDELIDADE_ATIVA || !fidelidadeCliente || !fidelidadeCliente.promocao_disponivel) return 0;
+        const checkUsar = document.getElementById('check_usar_fidelidade');
+        if (!checkUsar || !checkUsar.checked) return 0;
+        const pct = parseFloat(fidelidadeCliente.desconto_pct) || 0;
+        return Math.round(totalProdutos * pct) / 100;
     }
 
     function obterOpcaoProdutoSelecionada() {
@@ -737,6 +963,20 @@
         return null;
     }
 
+    function obterPrecoProdutoOption(option) {
+        if (tipoVendaEhCortesia()) return 0;
+        const preco = option.getAttribute('data-preco');
+        const precoCompleto = option.getAttribute('data-preco-completo') || preco;
+        const usaCompleta = option.getAttribute('data-venda-completa') === '1'
+            && option.getAttribute('data-vende-vazio') !== '1';
+        return parsePrecoBR(usaCompleta ? precoCompleto : preco);
+    }
+
+    function produtoUsaVendaCompleta(option) {
+        return option && option.getAttribute('data-venda-completa') === '1'
+            && option.getAttribute('data-vende-vazio') !== '1';
+    }
+
     function buscarProdutoDetalhes() {
         const inputVal = document.getElementById('produto_input').value;
         if(inputVal === "") { limparInputsProduto(); return; }
@@ -744,15 +984,14 @@
         const option = obterOpcaoProdutoSelecionada();
         if (option) {
             const id = option.getAttribute('data-id');
-            const preco = option.getAttribute('data-preco');
             const unidade = option.getAttribute('data-unidade'); 
             
             document.getElementById('produto_id_hidden').value = id;
-            const precoNum = parsePrecoBR(preco);
-            document.getElementById('preco_input').value = precoNum.toFixed(2);
             document.getElementById('produto_unidade_hidden').value = unidade;
-            
             document.getElementById('label_unidade').innerText = `(${unidade})`;
+
+            const precoNum = obterPrecoProdutoOption(option);
+            document.getElementById('preco_input').value = precoNum.toFixed(2);
 
             const containerBalanca = document.getElementById('container-balanca');
             if (unidade === 'KG') {
@@ -769,7 +1008,6 @@
             }
             
             document.getElementById('total_item_input').value = precoNum.toFixed(2);
-            
             inputQtd.select();
             return;
         }
@@ -781,7 +1019,7 @@
         document.getElementById('produto_id_hidden').value = "";
         document.getElementById('preco_input').value = "";
         document.getElementById('total_item_input').value = ""; 
-        document.getElementById('container-balanca').style.display = 'none'; // Esconde a balança ao limpar
+        document.getElementById('container-balanca').style.display = 'none';
     }
 
     function adicionarAoCarrinho() {
@@ -792,22 +1030,31 @@
         
         let qtdTexto = document.getElementById('qtd_input').value.toString().replace(',', '.');
         const qtd = parseFloat(qtdTexto);
+        const ehCortesia = tipoVendaEhCortesia();
 
         if (!id || !nome) { alert("Selecione um produto válido!"); return; }
-        if (!precoInput) { alert("Preço inválido!"); return; }
+        if (!ehCortesia && !precoInput) { alert("Preço inválido!"); return; }
         if (isNaN(qtd) || qtd <= 0) { alert("Quantidade inválida!"); return; }
 
         const option = obterOpcaoProdutoSelecionada();
+        const vendaCompleta = produtoUsaVendaCompleta(option);
         if (option) {
             const vendeVazio = option.getAttribute('data-vende-vazio') === '1';
             const qtdBaixa = parseFloat(option.getAttribute('data-qtd-baixa') || '1');
             const estoqueCheio = parseFloat(option.getAttribute('data-estoque-cheio') || '0');
             const estoqueVazio = parseFloat(option.getAttribute('data-estoque-vazio') || '0');
-            const itemExistenteTmp = carrinho.find(item => item.id === id);
+            const itemExistenteTmp = carrinho.find(item =>
+                String(item.id) === String(id) && !!item.venda_completa === vendaCompleta
+            );
             const qtdJaNoCarrinho = itemExistenteTmp ? itemExistenteTmp.quantidade : 0;
             const consumoTotal = (qtdJaNoCarrinho + qtd) * qtdBaixa;
 
-            if (vendeVazio) {
+            if (vendaCompleta) {
+                if (consumoTotal > estoqueCheio) {
+                    alert(`Estoque insuficiente para venda completa. Disponível: ${estoqueCheio}`);
+                    return;
+                }
+            } else if (vendeVazio) {
                 if (consumoTotal > estoqueVazio) {
                     alert(`Estoque insuficiente de vasilhame vazio. Disponível: ${estoqueVazio}`);
                     return;
@@ -818,13 +1065,17 @@
             }
         }
 
-        const precoFinal = parsePrecoBR(precoInput);
-        const itemExistente = carrinho.find(item => item.id === id && item.preco === precoFinal);
+        const precoFinal = ehCortesia ? 0 : parsePrecoBR(precoInput);
+        const nomeExibicao = vendaCompleta ? `${nome} (completo)` : nome;
+        const itemExistente = carrinho.find(item =>
+            String(item.id) === String(id) && !!item.venda_completa === vendaCompleta
+        );
         
         if (itemExistente) { 
-            itemExistente.quantidade += qtd; 
+            itemExistente.quantidade = (parseFloat(itemExistente.quantidade) || 0) + qtd;
+            if (!ehCortesia) itemExistente.preco = precoFinal;
         } else { 
-            carrinho.push({ id, nome, preco: precoFinal, quantidade: qtd, unidade: unidade }); 
+            carrinho.push({ id: String(id), nome: nomeExibicao, preco: precoFinal, quantidade: qtd, unidade: unidade, venda_completa: vendaCompleta }); 
         }
 
         renderizarTabela();
@@ -834,7 +1085,7 @@
         document.getElementById('preco_input').value = "";
         document.getElementById('total_item_input').value = ""; 
         document.getElementById('label_unidade').innerText = "";
-        document.getElementById('container-balanca').style.display = 'none'; // Esconde a balança após adicionar o item
+        document.getElementById('container-balanca').style.display = 'none';
         document.getElementById('produto_input').focus();
     }
 
@@ -873,15 +1124,34 @@
     }
 
     function calcularTotalGeral() {
+        if (tipoVendaEhCortesia()) {
+            descontoFidelidadeAtual = 0;
+            const display = document.getElementById('valorTotalDisplay');
+            display.innerText = 'R$ 0.00';
+            if (pagamentoDivididoAtivo()) calcularRestanteLiquidacao();
+            return;
+        }
         let totalProdutos = 0;
         carrinho.forEach(item => {
             const p = parsePrecoBR(item.preco);
             const q = parsePrecoBR(item.quantidade);
             if (isFinite(p) && isFinite(q)) totalProdutos += p * q;
         });
-        const taxa = obterTaxaEntrega();
-        const totalGeral = totalProdutos + taxa;
-        document.getElementById('valorTotalDisplay').innerText = 'R$ ' + totalGeral.toFixed(2);
+        descontoFidelidadeAtual = calcularDescontoFidelidade(totalProdutos);
+        const baseAposFid = Math.max(totalProdutos - descontoFidelidadeAtual, 0);
+        let taxaExtra = 0;
+        if (MODO_TAXA_SERVICO) {
+            taxaExtra = obterValorTaxaServico(baseAposFid);
+        } else {
+            taxaExtra = obterTaxaEntrega();
+        }
+        const totalGeral = Math.max(baseAposFid + taxaExtra, 0);
+        const display = document.getElementById('valorTotalDisplay');
+        if (descontoFidelidadeAtual > 0) {
+            display.innerText = 'R$ ' + totalGeral.toFixed(2) + ` (-R$ ${descontoFidelidadeAtual.toFixed(2)} fid.)`;
+        } else {
+            display.innerText = 'R$ ' + totalGeral.toFixed(2);
+        }
         if (pagamentoDivididoAtivo()) calcularRestanteLiquidacao();
     }
 
@@ -916,9 +1186,13 @@
         }
 
         let statusVenda = 'FINALIZADO';
+        const tipoVenda = selectTipoVenda ? selectTipoVenda.value : 'FINALIZADO';
+        const ehCortesia = tipoVendaEhCortesia();
         
         if (isFiado) {
             statusVenda = 'FIADO';
+        } else if (tipoVenda === 'ORCAMENTO') {
+            statusVenda = 'ORCAMENTO';
         } else if (checkFinalizarDepoisEl && checkFinalizarDepoisEl.checked) {
             statusVenda = 'AGUARDANDO_FINALIZAR'; 
         } else if (isEntrega) {
@@ -928,12 +1202,12 @@
         }
 
         let valorTroco = 0;
-        const isDividido = pagamentoDivididoAtivo();
-        if (!isFiado && !isDividido && meioLiquidacaoEhDinheiro()) {
+        const isDividido = (!ehCortesia) && pagamentoDivididoAtivo();
+        if (!ehCortesia && !isFiado && !isDividido && meioLiquidacaoEhDinheiro()) {
              valorTroco = document.getElementById('input_troco_para').value;
         }
 
-        if (isDividido) {
+        if (!ehCortesia && isDividido) {
             const parcelas = coletarLiquidacoes();
             if (parcelas.length < 2) {
                 alert('Pagamento dividido exige ao menos 2 formas de liquidação.');
@@ -956,30 +1230,43 @@
             }
         }
 
-        const totalVendaFinal = obterTotalVenda();
-        if (!isFinite(totalVendaFinal) || totalVendaFinal <= 0) {
+        const totalVendaFinal = ehCortesia ? 0 : obterTotalVenda();
+        if (!ehCortesia && tipoVenda !== 'ORCAMENTO' && (!isFinite(totalVendaFinal) || totalVendaFinal <= 0)) {
             alert('Total da venda inválido. Verifique os itens e a taxa de entrega.');
             return;
         }
 
+        const checkUsarFid = document.getElementById('check_usar_fidelidade');
+        const usarFidelidade = FIDELIDADE_ATIVA && checkUsarFid && checkUsarFid.checked && !ehCortesia;
+
         const dadosVenda = {
             venda_id: document.getElementById('venda_id_edicao').value || null, 
             cliente_id: document.getElementById('cliente_id_hidden').value || null,
-            status: statusVenda, 
-            forma_pagamento: document.getElementById('selectPagamento').value,
-            meio_liquidacao: document.getElementById('selectMeioLiquidacao').value,
+            status: statusVenda,
+            tipo_venda: tipoVenda,
+            eh_cortesia: ehCortesia,
+            forma_pagamento: ehCortesia ? 'CORTESIA' : document.getElementById('selectPagamento').value,
+            meio_liquidacao: ehCortesia ? 'CORTESIA' : document.getElementById('selectMeioLiquidacao').value,
             pagamento_dividido: isDividido,
-            taxa_entrega: obterTaxaEntrega(),
+            taxa_entrega: ehCortesia || MODO_TAXA_SERVICO ? 0 : obterTaxaEntrega(),
+            taxa_servico_pct: MODO_TAXA_SERVICO && !ehCortesia ? obterTaxaServicoPct() : 0,
             total_final: totalVendaFinal,
             troco_para: valorTroco,
             eh_fiado: isFiado,
             valor_pago_inicial: valorPagoFiado,
+            usar_fidelidade: usarFidelidade,
             atualizar_padrao: checkAttPadrao ? checkAttPadrao.checked : false, 
-            itens: carrinho,
+            itens: carrinho.map(it => ({
+                id: it.id,
+                nome: it.nome,
+                preco: it.preco,
+                quantidade: it.quantidade,
+                venda_completa: !!it.venda_completa,
+            })),
             eh_entrega: isEntrega,
             endereco_entrega: ''
         };
-        if (isDividido) {
+        if (!ehCortesia && isDividido) {
             dadosVenda.liquidacoes = coletarLiquidacoes();
         }
 
@@ -1011,7 +1298,9 @@
                 } else if (statusVenda !== 'FINALIZADO') {
                     window.location.href = "{% url 'lista_vendas' %}";
                 } else {
-                    window.location.href = "/vendas/detalhes/" + data.venda_id + "/";
+                    let url = "/vendas/detalhes/" + data.venda_id + "/";
+                    if (IMPRESSAO_AUTOMATICA) url += "?autoprint=1";
+                    window.location.href = url;
                 }
             } else { alert("Erro: " + data.mensagem); }
         })

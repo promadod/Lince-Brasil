@@ -261,6 +261,41 @@ def montar_financeiro(lojas_alvo, data_ini, data_fim):
     }
 
 
+def montar_estoque_gestor(lojas_alvo):
+    """Lista completa de estoque das lojas permitidas (espelha /estoque/ do PDV)."""
+    itens = ItemEstoque.objects.filter(
+        loja__in=lojas_alvo,
+    ).select_related('loja').order_by('loja__nome', 'nome')
+
+    multi_loja = lojas_alvo.count() > 1
+    lista = []
+    for item in itens:
+        cheios = float(item.quantidade_estoque)
+        entry = {
+            'id': item.id,
+            'nome': item.nome,
+            'cheios': cheios,
+            'unidade': item.unidade_medida,
+            'estoque_baixo': cheios <= 10,
+        }
+        if multi_loja:
+            entry['loja'] = item.loja.nome
+            entry['loja_id'] = item.loja_id
+        if item.loja.controla_vasilhame_vazio:
+            entry['vazios'] = float(item.quantidade_vazios)
+            entry['controla_vasilhame_vazio'] = True
+        else:
+            entry['controla_vasilhame_vazio'] = False
+        lista.append(entry)
+
+    return {
+        'itens': lista,
+        'total_itens': len(lista),
+        'itens_baixo': sum(1 for i in lista if i['estoque_baixo']),
+        'multi_loja': multi_loja,
+    }
+
+
 def montar_alertas(lojas_alvo):
     estoque_baixo = ItemEstoque.objects.filter(
         loja__in=lojas_alvo,

@@ -21,7 +21,8 @@ class ProdutoForm(forms.ModelForm):
         fields = [
             'item_estoque', 'nome_venda', 'imagem', 'quantidade_baixa',
             'preco_compra', 'preco_venda', 'fornecedor', 'vende_vasilhame_vazio',
-            'rastrear_recompra', 'dias_recompra', 'mensagem_recompra',
+            'rastrear_recompra', 'usa_venda_completa', 'preco_venda_completo',
+            'dias_recompra', 'mensagem_recompra',
         ]
         
         labels = {
@@ -44,8 +45,11 @@ class ProdutoForm(forms.ModelForm):
                 'title': 'Recalculado automaticamente ao abastecer estoque'
             }),
             'preco_venda': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'preco_venda_completo': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'fornecedor': forms.Select(attrs={'class': 'form-control select-search'}),
             'vende_vasilhame_vazio': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'usa_venda_completa': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'rastrear_recompra': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
     def __init__(self, *args, **kwargs):

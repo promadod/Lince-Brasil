@@ -97,6 +97,8 @@ urlpatterns = [
     path('categorias/', views.lista_categorias, name='lista_categorias'),
     path('categorias/deletar/<int:id>/', views.deletar_categoria, name='deletar_categoria'),
     path('transacao/nova/', views.adicionar_transacao, name='adicionar_transacao'),
+    path('transacao/excluir/<int:id>/', views.excluir_transacao, name='excluir_transacao'),
+    path('central_logs/', views.central_logs, name='central_logs'),
     path('dashboard/relatorios/entregas/', views.relatorio_entregadores, name='relatorio_entregas'),
 
 
@@ -134,6 +136,7 @@ urlpatterns = [
     path('api/gestor/financeiro/', gestor_views.api_gestor_financeiro, name='api_gestor_financeiro'),
     path('api/gestor/vendas/', gestor_views.api_gestor_vendas, name='api_gestor_vendas'),
     path('api/gestor/clientes/', gestor_views.api_gestor_clientes, name='api_gestor_clientes'),
+    path('api/gestor/estoque/', gestor_views.api_gestor_estoque, name='api_gestor_estoque'),
     path('api/gestor/campanha/', gestor_views.api_gestor_campanha, name='api_gestor_campanha'),
 
     path('api/entregas/assumir/<int:venda_id>/', AssumirEntregaView.as_view(), name='api_assumir_entrega'),
@@ -156,6 +159,7 @@ urlpatterns = [
     path('api/cliente/buscar/', views.api_buscar_cliente, name='api_buscar_cliente'),
     path('api/fidelidade/config/', views.api_fidelidade_config, name='api_fidelidade_config'),
     path('api/fidelidade/status/', views.api_fidelidade_status, name='api_fidelidade_status'),
+    path('api/fidelidade/cliente/', views.api_fidelidade_cliente_pdv, name='api_fidelidade_cliente_pdv'),
     path('api/cliente/pedidos/', views.api_meus_pedidos, name='api_meus_pedidos'),
     path('api/venda/conferir/<int:venda_id>/', views.api_conferir_venda, name='api_conferir_venda'),
 

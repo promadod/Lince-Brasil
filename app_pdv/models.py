@@ -44,6 +44,7 @@ MEIO_LIQUIDACAO_CHOICES = [
     ('PIX', 'Pix'),
     ('CREDITO', 'Cartão de Crédito'),
     ('DEBITO', 'Cartão de Débito'),
+    ('CORTESIA', 'Cortesia'),
 ]
 
 MEIO_LIQUIDACAO_VENDA_CHOICES = MEIO_LIQUIDACAO_CHOICES + [
@@ -55,6 +56,7 @@ MEIOS_LIQUIDACAO_PADRAO = [
     {'codigo': 'PIX', 'nome': 'Pix', 'cor': '#03dac6', 'icone': 'fa-qrcode'},
     {'codigo': 'CREDITO', 'nome': 'Cartão de Crédito', 'cor': '#29b6f6', 'icone': 'fa-credit-card'},
     {'codigo': 'DEBITO', 'nome': 'Cartão de Débito', 'cor': '#ff9800', 'icone': 'fa-wallet'},
+    {'codigo': 'CORTESIA', 'nome': 'Cortesia', 'cor': '#9e9e9e', 'icone': 'fa-gift'},
 ]
 
 FORMAS_PAGAMENTO_PADRAO = [
@@ -62,6 +64,7 @@ FORMAS_PAGAMENTO_PADRAO = [
     {'codigo': 'PIX', 'nome': 'Pix', 'cor': '#03dac6', 'icone': 'fa-qrcode', 'ordem': 2, 'exige_conferencia': False},
     {'codigo': 'CREDITO', 'nome': 'Cartão de Crédito', 'cor': '#29b6f6', 'icone': 'fa-credit-card', 'ordem': 3, 'exige_conferencia': False},
     {'codigo': 'DEBITO', 'nome': 'Cartão de Débito', 'cor': '#ff9800', 'icone': 'fa-wallet', 'ordem': 4, 'exige_conferencia': False},
+    {'codigo': 'CORTESIA', 'nome': 'Cortesia', 'cor': '#9e9e9e', 'icone': 'fa-gift', 'ordem': 99, 'exige_conferencia': False},
 ]
 
 UNIDADE_MEDIDA_CHOICES = [
@@ -112,6 +115,29 @@ class Loja(models.Model):
                    "Não: finaliza direto pela Torre de Controle, sem precisar do app."
     )
 
+    trabalha_com_entregas = models.BooleanField(
+        default=True,
+        verbose_name="Trabalha com entregas?",
+        help_text="Sim: vendas com cliente podem ir para entrega. "
+                   "Não: vendas no PDV ficam como venda na loja (balcão), mesmo com cliente.",
+    )
+
+    impressao_automatica = models.BooleanField(
+        default=False,
+        verbose_name="Impressão automática ao finalizar venda?",
+        help_text="Sim: ao finalizar venda no PDV, abre a impressão da nota fiscal.",
+    )
+
+    cobra_taxa_servico = models.BooleanField(
+        default=False,
+        verbose_name="Cobra taxa de serviço sobre a venda?",
+        help_text="Ativo com 'Trabalha com entregas' desmarcado: aplica % sobre o consumo no PDV e na nota.",
+    )
+    taxa_servico_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, default=10.00,
+        verbose_name="Taxa de serviço padrão (%)",
+    )
+
     usa_fiado = models.BooleanField(
         default=False,
         verbose_name="Habilitar Vendas Fiado?",
@@ -137,6 +163,12 @@ class Loja(models.Model):
         default=False,
         verbose_name="Permitir pagamento dividido?",
         help_text="Permite finalizar venda com 2 ou mais meios de liquidação (ex.: metade dinheiro, metade Pix)."
+    )
+
+    permite_venda_completa = models.BooleanField(
+        default=False,
+        verbose_name="Permitir venda de produto completo (gás+vasilhame)?",
+        help_text="Depósitos: cliente sem vazio pode comprar produto cheio sem troca de vasilhame.",
     )
 
     # --- PLANO DE FIDELIDADE ---
@@ -310,8 +342,44 @@ class PerfilUsuario(models.Model):
     perm_estoque = models.BooleanField(default=False, verbose_name="Modificar Estoque/Produtos")
     perm_relatorios = models.BooleanField(default=False, verbose_name="Ver Relatórios")
     perm_usuarios = models.BooleanField(default=False, verbose_name="Gerenciar Usuários")
+    conta_congelada = models.BooleanField(
+        default=False,
+        verbose_name="Conta congelada",
+        help_text="Bloqueia login até descongelar pelo Admin.",
+    )
+    motivo_congelamento = models.CharField(max_length=255, blank=True, default='')
+    congelada_em = models.DateTimeField(null=True, blank=True)
+    tentativas_login_falhas = models.PositiveIntegerField(default=0)
+    session_key_ativa = models.CharField(max_length=40, null=True, blank=True)
+    token_ativo = models.CharField(
+        max_length=64, null=True, blank=True,
+        verbose_name="Token API ativo (sessão única mobile)",
+    )
 
     def __str__(self): return f"{self.user.username} - {self.loja}"
+
+
+class BloqueioIPLogin(models.Model):
+    """Rate limit de login por IP (5 falhas → bloqueio temporário)."""
+    ip = models.GenericIPAddressField(unique=True)
+    tentativas = models.PositiveIntegerField(default=0)
+    bloqueado_ate = models.DateTimeField(null=True, blank=True)
+    ultima_tentativa = models.DateTimeField(auto_now=True)
+    ultimo_usuario_tentado = models.CharField(max_length=150, blank=True, default='')
+    observacao = models.CharField(max_length=255, blank=True, default='')
+
+    class Meta:
+        verbose_name = 'Bloqueio de IP (login)'
+        verbose_name_plural = 'Bloqueios de IP (login)'
+        ordering = ['-ultima_tentativa']
+
+    def __str__(self):
+        return f"{self.ip} ({self.tentativas} tent.)"
+
+    @property
+    def esta_bloqueado(self):
+        from django.utils import timezone
+        return bool(self.bloqueado_ate and self.bloqueado_ate > timezone.now())
 
 # --- SINAIS ---
 @receiver(post_save, sender=User)
@@ -385,6 +453,19 @@ class ItemEstoque(models.Model):
         return f"{valor} {self.unidade_medida}"
 
 
+def baixar_produto_completo_item(item_estoque, quantidade):
+    """Venda completa: baixa apenas cheios, sem incrementar vazios."""
+    qtd = Decimal(str(quantidade))
+    item_estoque.quantidade_estoque -= qtd
+    item_estoque.save(update_fields=['quantidade_estoque'])
+
+
+def devolver_produto_completo_item(item_estoque, quantidade):
+    qtd = Decimal(str(quantidade))
+    item_estoque.quantidade_estoque += qtd
+    item_estoque.save(update_fields=['quantidade_estoque'])
+
+
 def baixar_estoque_item(item_estoque, quantidade):
     """Baixa estoque cheio e, se a loja controla vasilhame, incrementa vazios."""
     qtd = Decimal(str(quantidade))
@@ -456,11 +537,17 @@ def produto_baixa_apenas_vasilhame_vazio(produto):
     ).exists()
 
 
-def validar_estoque_item_venda(loja, produto, quantidade_vendida):
+def validar_estoque_item_venda(loja, produto, quantidade_vendida, venda_completa=False):
     """Retorna mensagem de erro se não houver estoque; None se OK."""
     baixa = Decimal(str(quantidade_vendida)) * produto.quantidade_baixa
     item = produto.item_estoque
-    if produto_baixa_apenas_vasilhame_vazio(produto):
+    if venda_completa and not produto_baixa_apenas_vasilhame_vazio(produto):
+        if item.quantidade_estoque < baixa:
+            return (
+                f'Estoque insuficiente para venda completa de "{produto.nome_venda}". '
+                f'Disponível: {item.quantidade_estoque}'
+            )
+    elif produto_baixa_apenas_vasilhame_vazio(produto):
         if item.quantidade_vazios < baixa:
             return (
                 f'Estoque insuficiente de vasilhame vazio para "{produto.nome_venda}". '
@@ -480,10 +567,16 @@ def _item_baixa_vasilhame_vazio(item_venda):
     return produto_baixa_apenas_vasilhame_vazio(item_venda.produto)
 
 
+def _item_venda_completa(item_venda):
+    return bool(getattr(item_venda, 'venda_completa', False))
+
+
 def aplicar_baixa_item_venda(item_venda, quantidade_baixa):
     item = item_venda.produto.item_estoque
     if _item_baixa_vasilhame_vazio(item_venda):
         baixar_vasilhame_vazio_item(item, quantidade_baixa)
+    elif _item_venda_completa(item_venda):
+        baixar_produto_completo_item(item, quantidade_baixa)
     else:
         baixar_estoque_item(item, quantidade_baixa)
 
@@ -492,6 +585,8 @@ def aplicar_devolucao_item_venda(item_venda, quantidade_baixa):
     item = item_venda.produto.item_estoque
     if _item_baixa_vasilhame_vazio(item_venda):
         devolver_vasilhame_vazio_item(item, quantidade_baixa)
+    elif _item_venda_completa(item_venda):
+        devolver_produto_completo_item(item, quantidade_baixa)
     else:
         devolver_estoque_item(item, quantidade_baixa)
 
@@ -523,6 +618,11 @@ class Produto(models.Model):
     nome_venda = models.CharField(max_length=150, verbose_name="Nome na Venda (Ex: Pack, Promoção)")
     preco_compra = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Preço de Custo (Unitário)")
     preco_venda = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    preco_venda_completo = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        verbose_name="Preço venda completa (cheio+vasilhame)",
+        help_text="Opcional. Se vazio, usa preço cheio + produto vazio do mesmo item.",
+    )
     quantidade_baixa = models.DecimalField(max_digits=10, decimal_places=3, default=1.000, verbose_name="Qtd retirada do estoque (ex: 12 p/ Pack, 1.5 p/ KG)")
     fornecedor = models.ForeignKey(Fornecedor, on_delete=models.SET_NULL, null=True, blank=True)
     imagem = models.ImageField(upload_to='produtos/', null=True, blank=True)
@@ -537,6 +637,11 @@ class Produto(models.Model):
         default=False,
         verbose_name="Rastrear recompra deste produto?",
         help_text="Exibe alerta no dashboard quando o cliente passar dos dias configurados sem comprar.",
+    )
+    usa_venda_completa = models.BooleanField(
+        default=False,
+        verbose_name="Venda completa (gás + vasilhame, sem troca)?",
+        help_text="Baixa apenas estoque cheio, sem incrementar vazios. Use preço venda completa abaixo.",
     )
     dias_recompra = models.IntegerField(
         null=True, blank=True,
@@ -989,12 +1094,25 @@ class Venda(models.Model):
     eh_entrega = models.BooleanField(default=False, verbose_name="É Entrega?")
     endereco_entrega = models.TextField(blank=True, null=True)
     taxa_entrega = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    taxa_servico_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0.00,
+        verbose_name="Taxa de serviço (%) aplicada",
+    )
+    taxa_servico = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0.00,
+        verbose_name="Valor taxa de serviço (R$)",
+    )
     troco_para = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     conferencia_ok = models.BooleanField(default=False)
     quem_recebeu = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="recebimentos_caixa")
     status_entrega = models.CharField(max_length=20, choices=STATUS_ENTREGA_CHOICES, default='PENDENTE')
     entregador = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="entregas_realizadas")
     eh_fiado = models.BooleanField(default=False, verbose_name="Venda Fiado?")
+    eh_cortesia = models.BooleanField(default=False, verbose_name="Venda Cortesia?")
+    desconto_fidelidade = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name="Desconto fidelidade aplicado",
+    )
 
     def __str__(self):
         return f"Venda #{self.id} - {self.get_status_display()}"
@@ -1200,6 +1318,10 @@ class ItemVenda(models.Model):
         verbose_name="Baixa de vasilhame vazio",
         help_text="Snapshot: esta linha deduziu estoque de vazios, não de cheios.",
     )
+    venda_completa = models.BooleanField(
+        default=False,
+        verbose_name="Venda completa (sem troca de vasilhame)",
+    )
 
     # A FUNÇÃO DEF SAVE() FOI REMOVIDA DAQUI PARA O BEM DO SEU SISTEMA. 
     # ELA FOI SUBSTITUIDA PELOS SIGNALS LÁ NO FINAL DO ARQUIVO.
@@ -1340,6 +1462,35 @@ class Despesa(Transacao):
         verbose_name_plural = "Despesas"
 
 #9.---------------------------- Motoboy / Entregas-----------------------------
+
+class LogAuditoria(models.Model):
+    ACAO_CHOICES = [
+        ('CRIAR', 'Criou'),
+        ('EDITAR', 'Editou'),
+        ('EXCLUIR', 'Excluiu'),
+        ('LOGIN', 'Login'),
+        ('TRANSFERIR', 'Transferiu estoque'),
+        ('VENDA', 'Venda'),
+        ('OUTRO', 'Outro'),
+    ]
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='logs_auditoria')
+    loja = models.ForeignKey(Loja, on_delete=models.SET_NULL, null=True, blank=True)
+    acao = models.CharField(max_length=20, choices=ACAO_CHOICES, default='OUTRO')
+    modelo = models.CharField(max_length=80, blank=True, default='')
+    objeto_id = models.PositiveIntegerField(null=True, blank=True)
+    descricao = models.TextField()
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Log de auditoria'
+        verbose_name_plural = 'Logs de auditoria'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        user = self.usuario.username if self.usuario else '—'
+        return f"#{self.id} {user} — {self.get_acao_display()} — {self.criado_em:%d/%m/%Y %H:%M}"
+
 
 class Motoboy(models.Model):
     loja = models.ForeignKey(Loja, on_delete=models.CASCADE)

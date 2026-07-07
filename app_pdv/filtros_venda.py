@@ -3,7 +3,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.db.models import Q
 
-from .models import ORIGEM_VENDA_CHOICES
+from .models import ORIGEM_VENDA_CHOICES, MEIO_LIQUIDACAO_VENDA_CHOICES
 
 FILTROS_STATUS_HISTORICO = [
     ('', 'Todos os status'),
@@ -59,6 +59,8 @@ def filtrar_vendas_historico(queryset, get_params):
     venda_id = (get_params.get('venda_id') or '').strip().lstrip('#')
     valor_str = (get_params.get('valor') or '').strip()
     cliente = (get_params.get('cliente') or '').strip()
+    meio_liquidacao = (get_params.get('meio_liquidacao') or '').strip()
+    forma_pagamento = (get_params.get('forma_pagamento') or '').strip()
 
     if data_inicio:
         queryset = queryset.filter(data_venda__date__gte=data_inicio)
@@ -79,6 +81,15 @@ def filtrar_vendas_historico(queryset, get_params):
             pass
     if cliente:
         queryset = queryset.filter(cliente__nome__icontains=cliente)
+    if meio_liquidacao:
+        codigos_validos = {c for c, _ in MEIO_LIQUIDACAO_VENDA_CHOICES}
+        if meio_liquidacao in codigos_validos:
+            queryset = queryset.filter(
+                Q(meio_liquidacao=meio_liquidacao)
+                | Q(liquidacoes__meio_liquidacao=meio_liquidacao)
+            ).distinct()
+    if forma_pagamento:
+        queryset = queryset.filter(forma_pagamento=forma_pagamento)
 
     queryset = aplicar_filtro_status_vendas(queryset, status_filtro)
 
@@ -90,6 +101,8 @@ def filtrar_vendas_historico(queryset, get_params):
         'venda_id': venda_id,
         'valor': valor_str,
         'cliente': cliente,
+        'meio_liquidacao': meio_liquidacao,
+        'forma_pagamento': forma_pagamento,
     }
     filtros_ativos = any(filtros.values())
     return queryset, filtros, filtros_ativos

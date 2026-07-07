@@ -131,7 +131,7 @@
             {% endif %}
         </div>
 
-        {% if messages %}
+        {% if user.is_authenticated and messages %}
             {% for message in messages %}
                 <div class="alert-box {{ message.tags }}">
                     <i class="fas fa-info-circle"></i> {{ message }}

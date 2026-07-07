@@ -4,10 +4,11 @@ from django.contrib.auth.models import User
 from .models import (
     Loja, PerfilUsuario, Fornecedor, ItemEstoque, Produto, Cliente, 
     Venda, ItemVenda, Caixa, EntradaEstoque, PrecoFornecedorItem, PagamentoFiado, LiquidacaoVenda,
-    ParcelaFiadoAgendada,
+    ParcelaFiadoAgendada, BloqueioIPLogin,
     CategoriaTransacao, Transacao, Receita, Despesa, Moto, Motoboy, Rede,
     FormaPagamentoLoja, LogFechamentoEstoqueDiario
 )
+from .seguranca import descongelar_conta, liberar_ip
 
 admin.site.site_header = "Magno Distribuidora - Administração"
 admin.site.site_title = "Painel Administrativo"
@@ -18,9 +19,38 @@ class PerfilUsuarioInline(admin.StackedInline):
     model = PerfilUsuario
     can_delete = False
     verbose_name_plural = 'Perfil do Usuário (Vincular Loja)'
+    readonly_fields = ('congelada_em', 'tentativas_login_falhas', 'session_key_ativa', 'token_ativo')
+    fieldsets = (
+        (None, {
+            'fields': ('loja', 'telefone'),
+        }),
+        ('Permissões', {
+            'fields': (
+                'perm_dashboard', 'perm_pdv', 'perm_caixa', 'perm_torre',
+                'perm_estoque', 'perm_relatorios', 'perm_usuarios',
+            ),
+        }),
+        ('Segurança', {
+            'fields': (
+                'conta_congelada', 'motivo_congelamento', 'congelada_em',
+                'tentativas_login_falhas', 'session_key_ativa', 'token_ativo',
+            ),
+            'description': 'Desmarque "Conta congelada" e salve para liberar o usuário.',
+        }),
+    )
 
 class UserAdmin(BaseUserAdmin):
     inlines = (PerfilUsuarioInline,)
+    actions = ['descongelar_contas_selecionadas']
+
+    @admin.action(description='Descongelar contas selecionadas (segurança)')
+    def descongelar_contas_selecionadas(self, request, queryset):
+        n = 0
+        for user in queryset:
+            if hasattr(user, 'perfil') and user.perfil.conta_congelada:
+                descongelar_conta(user)
+                n += 1
+        self.message_user(request, f'{n} conta(s) descongelada(s).')
 
 # Remove o admin de usuário padrão e adiciona com a Loja
 admin.site.unregister(User)
@@ -51,18 +81,25 @@ class SaasAdmin(admin.ModelAdmin):
 
 @admin.register(Loja)
 class LojaAdmin(admin.ModelAdmin):
-    list_display = ('id', 'nome', 'gerente', 'ativo', 'usa_fiado', 'permite_pagamento_dividido', 'controla_vasilhame_vazio', 'estoque_diario', 'monitorar_entrega', 'data_criacao') 
-    list_filter = ('ativo', 'monitorar_entrega', 'usa_fiado', 'permite_pagamento_dividido', 'controla_vasilhame_vazio', 'estoque_diario')
+    list_display = ('id', 'nome', 'gerente', 'ativo', 'usa_fiado', 'permite_pagamento_dividido', 'controla_vasilhame_vazio', 'estoque_diario', 'monitorar_entrega', 'trabalha_com_entregas', 'impressao_automatica', 'data_criacao') 
+    list_filter = ('ativo', 'monitorar_entrega', 'trabalha_com_entregas', 'impressao_automatica', 'usa_fiado', 'permite_pagamento_dividido', 'controla_vasilhame_vazio', 'estoque_diario')
     fieldsets = (
         (None, {
             'fields': ('nome', 'gerente', 'rede', 'nome_unidade', 'ativo', 'loja_aberta')
         }),
         ('Entregas', {
-            'fields': ('taxa_entrega_app', 'taxa_entrega_pdv', 'monitorar_entrega', 'usa_moveon')
+            'fields': ('taxa_entrega_app', 'taxa_entrega_pdv', 'trabalha_com_entregas', 'monitorar_entrega', 'usa_moveon')
+        }),
+        ('PDV', {
+            'fields': ('impressao_automatica', 'cobra_taxa_servico', 'taxa_servico_pct'),
+            'description': 'Taxa de serviço só vale com "Trabalha com entregas" desmarcado.',
         }),
         ('Depósito / Fiado', {
-            'fields': ('usa_fiado', 'permite_pagamento_dividido', 'controla_vasilhame_vazio', 'estoque_diario'),
+            'fields': ('usa_fiado', 'permite_pagamento_dividido', 'controla_vasilhame_vazio', 'estoque_diario', 'permite_venda_completa'),
             'description': 'Habilite fiado para venda a prazo. Estoque diário exige controle de vasilhame ativo.',
+        }),
+        ('Fidelidade', {
+            'fields': ('fidelidade_ativa', 'fidelidade_tipo_meta', 'fidelidade_meta', 'fidelidade_desconto_pct'),
         }),
         ('Assinatura SaaS', {
             'fields': ('status_assinatura', 'data_vencimento', 'valor_mensalidade',
@@ -261,3 +298,25 @@ class LogFechamentoEstoqueDiarioAdmin(SaasAdmin):
     list_filter = ('tipo', 'data_referencia')
     search_fields = ('item_estoque__nome',)
     readonly_fields = ('registrado_em',)
+
+
+@admin.register(BloqueioIPLogin)
+class BloqueioIPLoginAdmin(admin.ModelAdmin):
+    list_display = (
+        'ip', 'tentativas', 'bloqueado_ate', 'esta_bloqueado_display',
+        'ultimo_usuario_tentado', 'ultima_tentativa',
+    )
+    list_filter = ('bloqueado_ate',)
+    search_fields = ('ip', 'ultimo_usuario_tentado')
+    readonly_fields = ('ultima_tentativa',)
+    actions = ['liberar_ips_selecionados']
+
+    @admin.display(boolean=True, description='Bloqueado agora')
+    def esta_bloqueado_display(self, obj):
+        return obj.esta_bloqueado
+
+    @admin.action(description='Liberar IP imediatamente (desbloquear login)')
+    def liberar_ips_selecionados(self, request, queryset):
+        for reg in queryset:
+            liberar_ip(reg.ip)
+        self.message_user(request, f'{queryset.count()} IP(s) liberado(s).')

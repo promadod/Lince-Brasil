@@ -1,6 +1,17 @@
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.contrib.auth import logout
+from django.contrib import messages
+from django.http import JsonResponse
 from .models import Loja
+from .seguranca import (
+    conta_congelada_username,
+    ip_bloqueado,
+    minutos_restantes_bloqueio_ip,
+    obter_ip_cliente,
+    usuario_eh_superuser,
+)
+
 
 class BloqueioPagamentoMiddleware:
     def __init__(self, get_response):
@@ -46,5 +57,85 @@ class BloqueioPagamentoMiddleware:
         except Exception as e:
             # Em produção, é melhor usar logging em vez de print
             print(f"Erro Middleware: {e}")
+
+        return self.get_response(request)
+
+
+class LoginProtecaoMiddleware:
+    """Bloqueia tentativas de login quando IP está em cooldown (superusuário isento)."""
+
+    ROTAS_LOGIN = ('/accounts/login/', '/api/login/')
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def _extrair_username(self, request):
+        username = (request.POST.get('username') or '').strip()
+        if username:
+            return username
+        if request.path == '/api/login/' and request.body:
+            import json
+            try:
+                body = json.loads(request.body.decode('utf-8'))
+                return (body.get('username') or '').strip()
+            except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+                pass
+        return ''
+
+    def __call__(self, request):
+        if request.method == 'POST' and request.path in self.ROTAS_LOGIN:
+            username = self._extrair_username(request)
+
+            if not usuario_eh_superuser(username):
+                ip = obter_ip_cliente(request)
+                if ip_bloqueado(ip):
+                    mins = minutos_restantes_bloqueio_ip(ip)
+                    msg = (
+                        f'Muitas tentativas de login. IP bloqueado por {mins} minuto(s). '
+                        'Contate o administrador se precisar de acesso imediato.'
+                    )
+                    if request.path == '/api/login/':
+                        return JsonResponse({'erro': msg, 'bloqueio_ip': True}, status=429)
+                    messages.error(request, msg)
+                    return redirect('login')
+
+                if conta_congelada_username(username):
+                    msg = (
+                        'Conta congelada por segurança. '
+                        'Solicite ao administrador do sistema para descongelar.'
+                    )
+                    if request.path == '/api/login/':
+                        return JsonResponse({'erro': msg, 'conta_congelada': True}, status=403)
+                    messages.error(request, msg)
+                    return redirect('login')
+
+        return self.get_response(request)
+
+
+class SessaoUnicaMiddleware:
+    """Encerra sessão web se login foi feito em outro navegador (superusuário isento)."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.user.is_authenticated and not request.user.is_superuser:
+            urls_liberadas = (
+                reverse('logout'),
+                '/admin/',
+                '/static/',
+                '/media/',
+                '/accounts/login/',
+            )
+            if not any(request.path.startswith(u) for u in urls_liberadas):
+                perfil = getattr(request.user, 'perfil', None)
+                sk = request.session.session_key
+                if perfil and perfil.session_key_ativa and sk and perfil.session_key_ativa != sk:
+                    logout(request)
+                    messages.warning(
+                        request,
+                        'Sessão encerrada: sua conta foi acessada em outro dispositivo.',
+                    )
+                    return redirect('login')
 
         return self.get_response(request)

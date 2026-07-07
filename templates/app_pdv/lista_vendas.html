@@ -55,6 +55,24 @@
                 <label for="filtro_cliente">Nome do cliente</label>
                 <input type="text" id="filtro_cliente" name="cliente" value="{{ filtros.cliente }}" placeholder="Buscar por nome...">
             </div>
+            <div class="vendas-filtro-field">
+                <label for="filtro_meio_liquidacao">Meio de liquidação</label>
+                <select id="filtro_meio_liquidacao" name="meio_liquidacao">
+                    <option value="">Todos</option>
+                    {% for codigo, rotulo in opcoes_meio_liquidacao %}
+                    <option value="{{ codigo }}"{% if filtros.meio_liquidacao == codigo %} selected{% endif %}>{{ rotulo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="vendas-filtro-field">
+                <label for="filtro_forma_pagamento">Tipo de lançamento</label>
+                <select id="filtro_forma_pagamento" name="forma_pagamento">
+                    <option value="">Todos</option>
+                    {% for forma in opcoes_forma_pagamento %}
+                    <option value="{{ forma.codigo }}"{% if filtros.forma_pagamento == forma.codigo %} selected{% endif %}>{{ forma.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
 
         <div class="vendas-filtros-acoes">
@@ -222,6 +240,19 @@
             </td></tr>
             {% endfor %}
         </tbody>
+        {% if vendas %}
+        <tfoot>
+            <tr style="border-top: 2px solid #03dac6; font-weight: bold;">
+                <td colspan="5" style="padding: 12px 10px; text-align: right; color: #03dac6;">
+                    Total geral (filtros aplicados):
+                </td>
+                <td style="padding: 12px 10px; color: #03dac6; font-size: 1.1em;">
+                    R$ {{ total_geral|floatformat:2 }}
+                </td>
+                <td colspan="2"></td>
+            </tr>
+        </tfoot>
+        {% endif %}
     </table>
 </div>
 

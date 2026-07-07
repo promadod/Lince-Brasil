@@ -1,5 +1,5 @@
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework.authentication import TokenAuthentication
+from app_pdv.authentication import SessaoUnicaTokenAuthentication as TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
@@ -12,6 +12,7 @@ from .gestor_api import (
     montar_resumo_gestor,
     montar_financeiro,
     montar_vendas_gestor,
+    montar_estoque_gestor,
     resolver_lojas_alvo,
     parse_periodo,
 )
@@ -140,6 +141,25 @@ def api_gestor_clientes(request):
         stats = montar_estatisticas_clientes(lojas_alvo)
         stats['loja_id'] = loja_id_resolvido
         return Response(stats)
+    except (GestorAcessoNegado, ValueError) as exc:
+        return _handle_gestor_error(exc)
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def api_gestor_estoque(request):
+    if not usuario_pode_acessar_gestor(request.user):
+        return Response(
+            {'erro': 'Sem permissão para o painel gestor.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    p = _params_gestor(request)
+    try:
+        lojas_alvo, loja_id_resolvido = resolver_lojas_alvo(request.user, p['loja_id'])
+        data = montar_estoque_gestor(lojas_alvo)
+        data['loja_id'] = loja_id_resolvido
+        return Response(data)
     except (GestorAcessoNegado, ValueError) as exc:
         return _handle_gestor_error(exc)
 

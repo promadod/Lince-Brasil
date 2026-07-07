@@ -3,6 +3,62 @@
 
 {% block content %}
 <style>
+    .nota-fiscal,
+    .nota-fiscal p,
+    .nota-fiscal td,
+    .nota-fiscal th,
+    .nota-fiscal h2,
+    .nota-fiscal h3,
+    .nota-fiscal strong,
+    .nota-fiscal li {
+        color: #111 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+    }
+    .nota-fiscal {
+        font-size: 14px;
+        line-height: 1.35;
+        padding: 12px 10px !important;
+        box-sizing: border-box;
+    }
+    .nota-fiscal h3 { font-size: 16px; font-weight: 700; }
+    .nota-fiscal h2 { font-size: 17px; font-weight: 700; }
+    .nota-fiscal table.nota-itens-table { margin-top: 4px; }
+    .nota-fiscal table.nota-itens-table td {
+        background: #fff !important;
+        color: #111 !important;
+        padding: 2px 0 !important;
+        border-bottom: none !important;
+    }
+    .nota-fiscal table.nota-itens-table tr:hover td {
+        background: #fff !important;
+        color: #111 !important;
+    }
+    .nota-fiscal .nota-itens-cabecalho td {
+        font-weight: 700;
+        padding-bottom: 4px !important;
+    }
+    .nota-separador {
+        display: block;
+        width: calc(100% + 20px);
+        max-width: none;
+        margin: 8px -10px;
+        padding: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        font-size: 11px;
+        line-height: 1;
+        color: #111 !important;
+        letter-spacing: 0;
+        text-align: left;
+        box-sizing: border-box;
+    }
+    .nota-totais-linha {
+        display: flex;
+        justify-content: space-between;
+        margin: 4px 0;
+        font-size: 13px;
+        font-weight: 600;
+    }
     .venda-observacao-block textarea {
         width: 100%;
         min-height: 70px;
@@ -45,14 +101,43 @@
     @media print {
         .sidebar, .btn-voltar, .btn-imprimir, .btn-cancelar { display: none !important; }
         .observacao-edit { display: none !important; }
-        .content { margin: 0; padding: 0; }
-        .nota-fiscal { border: none !important; box-shadow: none !important; max-width: 100% !important; }
-        body { background-color: #fff; color: #000; }
-        .card { background-color: #fff; color: #000; }
-        table { color: #000 !important; width: 100%; }
-        th, td { border-bottom: 1px solid #000 !important; }
-        .observacao-print { color: #000 !important; display: block !important; }
+        .content { margin: 0 !important; padding: 0 !important; }
+        body { background-color: #fff !important; color: #000 !important; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .card { background-color: #fff !important; color: #000 !important; box-shadow: none !important; border: none !important; }
+        .nota-fiscal {
+            border: none !important;
+            box-shadow: none !important;
+            max-width: 72mm !important;
+            width: 72mm !important;
+            margin: 0 auto !important;
+            font-size: 14px !important;
+            line-height: 1.35 !important;
+            color: #000 !important;
+        }
+        .nota-fiscal * { color: #000 !important; font-family: Arial, Helvetica, sans-serif !important; }
+        .nota-fiscal h3 { font-size: 16px !important; font-weight: 700 !important; }
+        .nota-fiscal h2 { font-size: 17px !important; font-weight: 700 !important; }
+        .nota-fiscal p { font-size: 13px !important; margin: 3px 0 !important; font-weight: 600 !important; }
+        table { color: #000 !important; width: 100% !important; font-size: 13px !important; }
+        .nota-fiscal table.nota-itens-table td {
+            background: #fff !important;
+            color: #000 !important;
+            border: none !important;
+        }
+        .nota-separador {
+            color: #000 !important;
+            width: calc(100% + 20px) !important;
+            margin-left: -10px !important;
+            margin-right: -10px !important;
+        }
+        .nota-totais-linha { font-size: 13px !important; font-weight: 700 !important; }
+        .observacao-print { color: #000 !important; display: block !important; font-size: 12px !important; }
         .observacao-print:empty { display: none !important; }
+        .venda-observacao-block { border-color: #000 !important; }
+    }
+    @page {
+        size: 80mm auto;
+        margin: 2mm;
     }
 </style>
 
@@ -76,112 +161,83 @@
     </div>
 </div>
 
-<div class="card nota-fiscal" style="max-width: 400px; margin: 0 auto; font-family: 'Courier New', Courier, monospace;">
-    <div style="text-align: center; margin-bottom: 15px; border-bottom: 1px dashed #555; padding-bottom: 10px;">
+<div class="card nota-fiscal" style="max-width: 72mm; margin: 0 auto; background: #fff;">
+    <div style="text-align: center; margin-bottom: 8px;">
         <h3 style="margin: 0;">{{ venda.loja.nome }}</h3>
         <p style="margin: 5px 0;">Venda #{{ venda.id }}</p>
-        <p style="font-size: 0.9em;">{{ venda.data_venda|date:"d/m/Y H:i" }}</p>
+        <p>{{ venda.data_venda|date:"d/m/Y H:i" }}</p>
     </div>
+    <div class="nota-separador" aria-hidden="true">--------------------------------------------------------------------------------------------------------------------------------</div>
 
-    <div style="border-bottom: 1px dashed #555; padding-bottom: 10px; margin-bottom: 10px;">
+    <div style="margin-bottom: 8px;">
         <p style="margin: 3px 0;"><strong>Cliente:</strong> {{ venda.cliente.nome|default:"Venda na loja" }}</p>
         
         {% if venda.cliente %}
-            
             {% if venda.cliente.whatsapp %}
                 <p style="margin: 3px 0;"><strong>WhatsApp:</strong> {{ venda.cliente.whatsapp }}</p>
             {% elif venda.cliente.telefone %}
                 <p style="margin: 3px 0;"><strong>Contato:</strong> {{ venda.cliente.telefone }}</p>
             {% endif %}
-            
-            <p style="margin: 3px 0;"><strong>Tipo de Lançamento:</strong> {{ venda.get_nome_forma_pagamento }}</p>
-            {% if liquidacoes %}
-            <p style="margin: 3px 0;"><strong>Liquidação:</strong></p>
-            <ul style="margin: 3px 0 3px 16px; padding: 0; font-size: 0.9em;">
-                {% for liq in liquidacoes %}
-                <li>
-                    {{ liq.get_meio_liquidacao_display }} — R$ {{ liq.valor|floatformat:2 }}
-                    {% if liq.meio_liquidacao == 'DINHEIRO' and liq.troco_para %}
-                        (troco p/ R$ {{ liq.troco_para|floatformat:2 }})
-                    {% endif %}
-                    {% if liq.meio_liquidacao == 'DINHEIRO' and not liq.conferencia_ok %}
-                        <span style="color: #ff9800;"> — aguardando conferência</span>
-                    {% endif %}
-                </li>
-                {% endfor %}
-            </ul>
-            {% else %}
-            <p style="margin: 3px 0;"><strong>Meio de Liquidação:</strong> {{ venda.get_nome_meio_liquidacao }}</p>
-            {% endif %}
-            
-            <p style="margin: 3px 0;"><strong>Vendedor:</strong> {{ venda.vendedor.username|default:"App (Autoatendimento)" }}</p>
-            
             {% if venda.cliente.endereco %}
                 <p style="margin: 3px 0;"><strong>Endereço:</strong> {{ venda.cliente.endereco }}</p>
             {% endif %}
         {% endif %}
-        
-        {% if venda.exige_conferencia_pagamento %}
-            {% if venda.conferencia_ok %}
-                <p style="margin: 3px 0;"><strong>Troco Recebido por:</strong> 
-                    {% if venda.quem_recebeu %}
-                        {{ venda.quem_recebeu.first_name|default:venda.quem_recebeu.username }}
-                    {% else %}
-                        Sistema (Venda Antiga)
-                    {% endif %}
-                </p>
-            {% else %}
-                {% if venda.eh_entrega %}
-                    <p style="margin: 3px 0; color: #cf6679;"><strong>Caixa:</strong> Aguardando acerto com motoboy</p>
-                {% else %}
-                    <p style="margin: 3px 0; color: #ffbb33;"><strong>Caixa:</strong> Aguardando acerto no balcão</p>
-                {% endif %}
-            {% endif %}
-        {% endif %}
-        </div>
 
-    {% if venda.eh_fiado %}
-    <div style="border-bottom: 1px dashed #555; padding-bottom: 10px; margin-bottom: 10px; background: #2a2010; padding: 10px; border-radius: 4px;">
-        <p style="margin: 3px 0; color: #ff9800; font-weight: bold;"><i class="fas fa-hand-holding-usd"></i> Venda Fiado</p>
-        <p style="margin: 3px 0;">Pago: R$ {{ venda.valor_pago_fiado|floatformat:2 }}</p>
-        <p style="margin: 3px 0; color: #cf6679;">Saldo devedor: R$ {{ venda.saldo_devedor|floatformat:2 }}</p>
-        {% if pagamentos_fiado %}
-        <small style="color: #aaa;">Pagamentos:</small>
-        <ul style="margin: 5px 0; padding-left: 18px; font-size: 0.85em; color: #ccc;">
-            {% for pg in pagamentos_fiado %}
-            <li>{{ pg.data_pagamento|date:"d/m/Y H:i" }} — R$ {{ pg.valor|floatformat:2 }} ({{ pg.get_meio_liquidacao_display }})</li>
+        {% if venda.loja.trabalha_com_entregas %}
+        <p style="margin: 3px 0;"><strong>Tipo de Lançamento:</strong> {{ venda.get_nome_forma_pagamento }}</p>
+        {% if liquidacoes %}
+        <p style="margin: 3px 0;"><strong>Liquidação:</strong></p>
+        <ul style="margin: 3px 0 3px 16px; padding: 0;">
+            {% for liq in liquidacoes %}
+            <li>
+                {{ liq.get_meio_liquidacao_display }} — R$ {{ liq.valor|floatformat:2 }}
+                {% if liq.meio_liquidacao == 'DINHEIRO' and liq.troco_para %}
+                    (troco p/ R$ {{ liq.troco_para|floatformat:2 }})
+                {% endif %}
+            </li>
             {% endfor %}
         </ul>
+        {% else %}
+        <p style="margin: 3px 0;"><strong>Meio de Liquidação:</strong> {{ venda.get_nome_meio_liquidacao }}</p>
         {% endif %}
+        {% endif %}
+
+        <p style="margin: 3px 0;"><strong>Vendedor:</strong> {{ venda.vendedor.username|default:"App (Autoatendimento)" }}</p>
+    </div>
+
+    {% if venda.eh_fiado %}
+    <div class="nota-separador" aria-hidden="true">--------------------------------------------------------------------------------------------------------------------------------</div>
+    <div style="margin-bottom: 8px;">
+        <p style="margin: 3px 0; font-weight: bold;">Venda Fiado</p>
+        <p style="margin: 3px 0;">Pago: R$ {{ venda.valor_pago_fiado|floatformat:2 }}</p>
+        <p style="margin: 3px 0;">Saldo devedor: R$ {{ venda.saldo_devedor|floatformat:2 }}</p>
     </div>
     {% endif %}
 
-    <div class="venda-observacao-block{% if venda.status == 'CANCELADO' %} venda-observacao-block--leitura{% endif %}" style="border-bottom: 1px dashed #555; padding-bottom: 10px; margin-bottom: 10px;">
+    <div class="venda-observacao-block{% if venda.status == 'CANCELADO' %} venda-observacao-block--leitura{% endif %}" style="margin-bottom: 8px;">
         <p style="margin: 3px 0;"><strong>Observação:</strong></p>
         <p class="observacao-print" id="obs_print_text">{% if venda.observacao %}{{ venda.observacao }}{% endif %}</p>
 
         {% if venda.status != 'CANCELADO' %}
         <div class="observacao-edit">
-            <textarea id="input_observacao" maxlength="2000" placeholder="Ex: portão azul, referência próximo ao mercado...">{{ venda.observacao|default:"" }}</textarea>
+            <textarea id="input_observacao" maxlength="2000" placeholder="Ex: mesa 5, referência...">{{ venda.observacao|default:"" }}</textarea>
             <div>
                 <button type="button" class="btn-salvar-obs" id="btn_salvar_obs" onclick="salvarObservacao()">Salvar observação</button>
                 <span id="obs_status_msg"></span>
             </div>
         </div>
-        {% elif not venda.observacao %}
-        <p style="margin: 6px 0 0; color: #888; font-size: 0.9em;">—</p>
         {% endif %}
     </div>
 
-    <table style="width: 100%; border-collapse: collapse;">
-        <thead>
-            <tr>
-                <th style="text-align: left;">Item</th>
-                <th style="text-align: center;">Qtd</th>
-                <th style="text-align: right;">Val</th>
-            </tr>
-        </thead>
+    <div class="nota-separador" aria-hidden="true">--------------------------------------------------------------------------------------------------------------------------------</div>
+
+    <table class="nota-itens-table" style="width: 100%; border-collapse: collapse;">
         <tbody>
+            <tr class="nota-itens-cabecalho">
+                <td style="text-align: left;">Item</td>
+                <td style="text-align: center;">Qtd</td>
+                <td style="text-align: right;">Val</td>
+            </tr>
             {% for item in itens %}
             <tr>
                 <td>{{ item.produto.nome_venda }}</td>
@@ -198,15 +254,39 @@
         </tbody>
     </table>
 
-    <div style="margin-top: 15px; text-align: right; border-top: 1px dashed #555; padding-top: 10px;">
-        {% if venda.taxa_entrega > 0 %}
-            <p style="margin: 5px 0;">Taxa Entrega: R$ {{ venda.taxa_entrega }}</p>
+    <div class="nota-separador" aria-hidden="true">--------------------------------------------------------------------------------------------------------------------------------</div>
+
+    <div style="margin-top: 8px;">
+        <div class="nota-totais-linha">
+            <span>TOTAL DO CONSUMO</span>
+            <span>R$ {{ subtotal_consumo|floatformat:2 }}</span>
+        </div>
+        {% if venda.desconto_fidelidade > 0 %}
+        <div class="nota-totais-linha">
+            <span>DESCONTO</span>
+            <span>R$ {{ venda.desconto_fidelidade|floatformat:2 }}</span>
+        </div>
         {% endif %}
-        
-        <h2 style="margin: 10px 0;">Total: R$ {{ venda.total }}</h2>
+        {% if venda.taxa_servico > 0 %}
+        <div class="nota-totais-linha">
+            <span>SERVIÇO ({{ venda.taxa_servico_pct|floatformat:0 }}%)</span>
+            <span>R$ {{ venda.taxa_servico|floatformat:2 }}</span>
+        </div>
+        {% endif %}
+        {% if venda.taxa_entrega > 0 %}
+        <div class="nota-totais-linha">
+            <span>TAXA ENTREGA</span>
+            <span>R$ {{ venda.taxa_entrega|floatformat:2 }}</span>
+        </div>
+        {% endif %}
+        <div class="nota-totais-linha" style="font-size: 15px; margin-top: 8px;">
+            <span><strong>Total Geral</strong></span>
+            <span><strong>R$ {{ venda.total|floatformat:2 }}</strong></span>
+        </div>
     </div>
     
-    <div style="text-align: center; margin-top: 20px; font-size: 0.8em;">
+    <div class="nota-separador" aria-hidden="true">--------------------------------------------------------------------------------------------------------------------------------</div>
+    <div style="text-align: center; margin-top: 20px; font-size: 12px;">
         <p>Obrigado pela preferência!</p>
     </div>
 </div>
@@ -214,7 +294,6 @@
 <script>
     function confirmarCancelamento() {
         if (confirm("ATENÇÃO: Isso vai devolver todos os produtos para o estoque.\n\nTem certeza que deseja cancelar esta venda?")) {
-            
             window.location.href = "{% url 'cancelar_venda_pdv' venda.id %}";
         }
     }
@@ -265,5 +344,11 @@
             }, 2500);
         });
     }
+
+    {% if auto_print %}
+    window.addEventListener('load', function() {
+        setTimeout(function() { window.print(); }, 400);
+    });
+    {% endif %}
 </script>
 {% endblock %}

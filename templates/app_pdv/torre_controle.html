@@ -138,6 +138,22 @@
         
         let isSomTocando = false;
         let monitorarEntrega = {{ monitorar_entrega|yesno:"true,false" }};
+        let listaMotoboys = {{ motoboys_json|safe }};
+
+        function selectMotoboyHtml(p) {
+            if (!listaMotoboys.length) {
+                return `<div class="text-warning small mb-2"><i class="bi bi-exclamation-triangle"></i> Cadastre entregadores em /entregas/</div>`;
+            }
+            const opts = listaMotoboys.map(m =>
+                `<option value="${m.id}">${m.nome}</option>`
+            ).join('');
+            return `
+                <select id="motoboy-${p.id}" class="form-select form-select-sm mb-2" style="background:#1a1a1a;color:#fff;border-color:#555;">
+                    <option value="">Selecione o entregador...</option>
+                    ${opts}
+                </select>
+            `;
+        }
 
         // ------------------ SCRIPT DO BOTÃO DA LOJA ------------------
         document.addEventListener("DOMContentLoaded", function() {
@@ -185,6 +201,9 @@
 
                 if (typeof data.monitorar_entrega !== 'undefined') {
                     monitorarEntrega = data.monitorar_entrega;
+                }
+                if (data.motoboys) {
+                    listaMotoboys = data.motoboys;
                 }
                 
                 document.getElementById('coluna-pendente').innerHTML = '';
@@ -250,10 +269,36 @@
             if (!monitorarEntrega) {
                 if (p.status === 'PENDENTE') {
                     classeExtra = 'novo-pedido-alerta';
-                }
-                botoes = botaoConfirmarEntrega(p.id);
-                if (p.status === 'PENDENTE') {
-                    botoes += `<button onclick="mudarStatus(${p.id}, 'CANCELADO')" class="btn btn-outline-danger btn-sm mt-2 w-100">❌ Recusar</button>`;
+                    botoes = `
+                        <button onclick="mudarStatus(${p.id}, 'EM_PREPARACAO')" class="btn btn-success btn-acao">✅ Aceitar Pedido</button>
+                        <button onclick="mudarStatus(${p.id}, 'CANCELADO')" class="btn btn-outline-danger btn-sm mt-2 w-100">❌ Recusar</button>
+                    `;
+                } else if (p.status === 'EM_PREPARACAO') {
+                    if (p.eh_entrega === false) {
+                        botoes = `
+                            <div class="text-center text-dark" style="background-color: #ffc107; padding: 8px; border-radius: 5px; margin-top: 10px; font-weight: bold;">
+                                <i class="bi bi-shop"></i> Cliente virá retirar na loja
+                            </div>
+                            <button onclick="mudarStatus(${p.id}, 'FINALIZADO')" class="btn btn-success btn-acao mt-2">✅ Confirmar Retirada</button>
+                        `;
+                    } else {
+                        let infoMoto = p.entregador_nome
+                            ? `<div class="text-center text-white mb-2" style="background:#6f42c1;padding:6px;border-radius:5px;font-weight:bold;"><i class="bi bi-motorcycle"></i> ${p.entregador_nome}</div>`
+                            : '';
+                        botoes = `
+                            ${infoMoto}
+                            ${selectMotoboyHtml(p)}
+                            <button onclick="enviarParaRota(${p.id})" class="btn btn-warning btn-acao">🛵 Saiu para Entrega</button>
+                        `;
+                    }
+                } else if (p.status === 'SAIU_ENTREGA') {
+                    let infoMoto = p.entregador_nome
+                        ? `<small class="d-block text-warning mb-2"><i class="bi bi-person-fill"></i> ${p.entregador_nome}</small>`
+                        : '';
+                    botoes = `
+                        ${infoMoto}
+                        <button onclick="mudarStatus(${p.id}, 'FINALIZADO')" class="btn btn-secondary btn-acao">🏁 Finalizar / Entregue</button>
+                    `;
                 }
             } else if (p.status === 'PENDENTE') {
                 classeExtra = 'novo-pedido-alerta';
@@ -323,19 +368,31 @@
             `;
         }
 
+        async function enviarParaRota(id) {
+            const sel = document.getElementById(`motoboy-${id}`);
+            const motoboy_id = sel ? sel.value : null;
+            if (!motoboy_id) {
+                alert('Selecione o entregador antes de liberar para rota.');
+                return;
+            }
+            if (!confirm('Confirmar saída para entrega com este motoboy?')) return;
+            await mudarStatus(id, 'SAIU_ENTREGA', true, motoboy_id);
+        }
+
         async function confirmarEntrega(id) {
             if (!confirm("Confirmar entrega e finalizar esta venda?")) return;
             await mudarStatus(id, 'FINALIZADO', true);
         }
 
-        async function mudarStatus(id, novoStatus, skipConfirm = false) {
+        async function mudarStatus(id, novoStatus, skipConfirm = false, motoboy_id = null) {
             if (!skipConfirm && !confirm("Mudar status do pedido?")) return;
             try {
-                // Se o cara aceitar, o pedido sai da primeira coluna e o JS desliga o som na mesma hora
+                const payload = { novo_status: novoStatus };
+                if (motoboy_id) payload.motoboy_id = parseInt(motoboy_id, 10);
                 await fetch(`${API_STATUS}${id}/`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ novo_status: novoStatus })
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                    body: JSON.stringify(payload)
                 });
                 atualizarPainel();
             } catch (e) {

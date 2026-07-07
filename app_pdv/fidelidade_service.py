@@ -1,7 +1,7 @@
 """Plano de fidelidade — progresso, promoção e desconto."""
 from decimal import Decimal
 
-from .models import Produto
+from .models import Cliente, Produto
 
 
 def obter_config_fidelidade(loja):
@@ -39,6 +39,30 @@ def status_fidelidade_cliente(cliente, loja):
         'promocao_disponivel': bool(cliente.promocao_fidelidade_ativa),
         'percentual_progresso': min(round(pct, 1), 100),
     }
+
+
+def listar_acompanhamento_fidelidade(loja):
+    """Clientes com progresso no plano de fidelidade."""
+    cfg = obter_config_fidelidade(loja)
+    if not cfg:
+        return []
+    meta = Decimal(str(cfg['meta']))
+    clientes = Cliente.objects.filter(loja=loja).order_by('-progresso_fidelidade', 'nome')
+    lista = []
+    for c in clientes:
+        prog = Decimal(str(c.progresso_fidelidade or 0))
+        falta = max(meta - prog, Decimal('0'))
+        lista.append({
+            'id': c.id,
+            'nome': c.nome,
+            'progresso': float(prog),
+            'meta': float(meta),
+            'falta': float(falta),
+            'tipo_meta': cfg['tipo_meta'],
+            'promocao_disponivel': c.promocao_fidelidade_ativa,
+            'percentual': min(float(prog / meta * 100) if meta > 0 else 0, 100),
+        })
+    return lista
 
 
 def calcular_desconto_fidelidade(cliente, loja, total_produtos, usar_promocao=False):

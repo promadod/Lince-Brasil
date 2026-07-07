@@ -3,38 +3,64 @@
 
 {% block content %}
 <style>
-    /* Força cor preta em TUDO dentro do recibo, ignorando o tema escuro */
-    .recibo-container, 
-    .recibo-container h3, 
-    .recibo-container p, 
-    .recibo-container span, 
-    .recibo-container td, 
+    .recibo-container,
+    .recibo-container h3,
+    .recibo-container p,
+    .recibo-container span,
+    .recibo-container td,
+    .recibo-container th,
     .recibo-container li,
     .recibo-container strong {
-        color: #000000 !important; /* Preto absoluto */
+        color: #000000 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-weight: 600;
     }
+    .recibo-container {
+        font-size: 14px;
+        line-height: 1.35;
+        background: #ffffff !important;
+    }
+    .recibo-container h3 { font-size: 16px; font-weight: 700; }
+    .recibo-produtos-titulo {
+        text-align: center;
+        font-weight: 700;
+        margin: 14px 0 8px;
+        font-size: 13px;
+        letter-spacing: 0.02em;
+    }
+    .recibo-produtos-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+    .recibo-produtos-table th,
+    .recibo-produtos-table td { padding: 2px 0; border-bottom: 1px dotted #000; }
 
-    /* Estilos para Impressão */
     @media print {
         .sidebar, .btn-imprimir, .btn-voltar { display: none !important; }
         .content { margin: 0; padding: 0; width: 100%; background-color: #fff; }
-        body { background-color: #fff; }
-        .recibo-container { border: none !important; box-shadow: none !important; margin: 0; }
+        body { background-color: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .recibo-container {
+            border: none !important;
+            box-shadow: none !important;
+            margin: 0;
+            max-width: 72mm !important;
+            width: 72mm !important;
+            font-size: 14px !important;
+        }
+        .recibo-container * { color: #000 !important; font-weight: 600 !important; }
     }
+    @page { size: 80mm auto; margin: 2mm; }
 </style>
 
-<div style="max-width: 400px; margin: 0 auto;">
+<div style="max-width: 72mm; margin: 0 auto;">
     <div style="display: flex; gap: 10px; margin-bottom: 20px;" class="no-print">
         <a href="{% url 'fluxo_caixa' %}" class="btn btn-voltar" style="background-color: #333;">Voltar</a>
         <button onclick="window.print()" class="btn btn-imprimir" style="background-color: #03dac6; color: #000;">Imprimir</button>
     </div>
 
-    <div class="card recibo-container" style="background: #ffffff !important; font-family: 'Courier New', monospace; padding: 20px;">
+    <div class="card recibo-container" style="padding: 16px;">
         
         <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px;">
-            <h3 style="margin: 0; text-transform: uppercase; font-weight: bold; font-size: 1.2em;">{{ caixa.loja.nome }}</h3>
+            <h3 style="margin: 0; text-transform: uppercase;">{{ caixa.loja.nome }}</h3>
             <p style="margin: 5px 0; font-weight: bold;">COMPROVANTE DE FECHAMENTO</p>
-            <p style="font-size: 0.8em;">{{ data_fechamento|date:"d/m/Y H:i:s" }}</p>
+            <p style="font-size: 13px;">{{ data_fechamento|date:"d/m/Y H:i:s" }}</p>
         </div>
 
         <p><strong>Operador:</strong> {{ operador.username }}</p>
@@ -42,7 +68,7 @@
 
         <div style="border-bottom: 1px dashed #000; margin: 10px 0;"></div>
 
-        <table style="width: 100%; font-size: 0.9em;">
+        <table style="width: 100%; font-size: 13px;">
             <tr>
                 <td>(+) Saldo Inicial:</td>
                 <td style="text-align: right;">R$ {{ caixa.saldo_inicial }}</td>
@@ -69,7 +95,7 @@
 
         <div style="border-bottom: 1px dashed #000; margin: 10px 0;"></div>
 
-        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2em; margin: 10px 0;">
+        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 15px; margin: 10px 0;">
             <span>SALDO FINAL:</span>
             <span>R$ {{ caixa.saldo_final|floatformat:2 }}</span>
         </div>
@@ -77,7 +103,7 @@
         <div style="border-bottom: 1px dashed #000; margin: 10px 0;"></div>
 
         <p style="margin-bottom: 5px; font-weight: bold;">Detalhamento Vendas:</p>
-        <ul style="list-style: none; padding: 0; font-size: 0.9em;">
+        <ul style="list-style: none; padding: 0; font-size: 13px;">
             {% for p in resumo_pgto %}
             <li style="display: flex; justify-content: space-between; margin-bottom: 3px;">
                 <span>{{ p.nome }}:</span>
@@ -85,6 +111,33 @@
             </li>
             {% endfor %}
         </ul>
+
+        {% if produtos_vendidos %}
+        <div style="border-top: 1px dashed #000; margin-top: 12px; padding-top: 8px;">
+            <p class="recibo-produtos-titulo">MOVIMENTAÇÃO SAÍDAS DE MERCADORIAS</p>
+            <table class="recibo-produtos-table">
+                <thead>
+                    <tr>
+                        <th style="text-align: left;">PRODUTO</th>
+                        <th style="text-align: center;">QTE</th>
+                        <th style="text-align: right;">TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in produtos_vendidos %}
+                    <tr>
+                        <td>{{ p.nome }}</td>
+                        <td style="text-align: center;">{{ p.qtd|floatformat:0 }}</td>
+                        <td style="text-align: right;">{{ p.total|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <p style="text-align: right; font-size: 12px; margin-top: 8px; font-weight: bold;">
+                *TOT.GERAL: {{ total_produtos_qtd|floatformat:0 }} — R$ {{ total_produtos_valor|floatformat:2 }}
+            </p>
+        </div>
+        {% endif %}
 
         <div style="margin-top: 40px; text-align: center;">
             <div style="border-top: 1px solid #000; width: 80%; margin: 0 auto 5px auto;"></div>

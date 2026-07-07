@@ -49,6 +49,12 @@
             {% if field.name == 'rastrear_recompra' %}
             <p class="hint">Ative para exibir alertas de recompra no dashboard quando o cliente passar dos dias configurados.</p>
             {% endif %}
+            {% if field.name == 'usa_venda_completa' %}
+            <p class="hint">Cliente sem vasilhame vazio pode comprar produto cheio + vasilhame. Baixa só o estoque cheio. Informe o <strong>Preço venda completa</strong> abaixo.</p>
+            {% endif %}
+            {% if field.name == 'preco_venda_completo' %}
+            <p class="hint">Usado quando <strong>Venda completa</strong> está marcada. Se vazio, usa o preço de venda normal.</p>
+            {% endif %}
             {% if field.name == 'dias_recompra' %}
             <p class="hint">Ex.: 5 dias para água, 30 dias para gás. Configure conforme o produto.</p>
             {% endif %}
